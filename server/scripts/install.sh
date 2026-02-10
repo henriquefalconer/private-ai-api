@@ -5,10 +5,16 @@ set -euo pipefail
 # Automates the setup of Ollama + Tailscale for private LLM inference
 # Source: server/specs/* and server/SETUP.md
 
+# Suppress Homebrew noise
+export HOMEBREW_NO_ENV_HINTS=1
+export HOMEBREW_NO_INSTALL_CLEANUP=1
+
 # Color output helpers
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 info() {
@@ -26,6 +32,23 @@ error() {
 fatal() {
     error "$1"
     exit 1
+}
+
+section_break() {
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+}
+
+important_section() {
+    echo ""
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║                                                                ║"
+    echo "║  $(printf "%-60s" "$1")  ║"
+    echo "║                                                                ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
 }
 
 # Banner
@@ -70,8 +93,8 @@ if ! [ -d "/Applications/Tailscale.app" ]; then
     warn "Tailscale installation will request your password (sudo access required)"
     echo "This is normal - Homebrew needs permission to install the system extension."
     echo ""
-    info "Installing Tailscale GUI via Homebrew..."
-    brew install --cask tailscale || fatal "Failed to install Tailscale GUI"
+    info "Installing Tailscale GUI via Homebrew (this may take a minute)..."
+    brew install --cask tailscale > /tmp/tailscale-install.log 2>&1 || fatal "Failed to install Tailscale GUI"
     info "✓ Tailscale GUI installed"
 else
     info "✓ Tailscale GUI already installed"
@@ -79,8 +102,8 @@ fi
 
 # Check if CLI tools are available
 if ! command -v tailscale &> /dev/null; then
-    info "Installing Tailscale CLI tools via Homebrew..."
-    brew install tailscale || fatal "Failed to install Tailscale CLI"
+    info "Installing Tailscale CLI tools..."
+    brew install tailscale > /tmp/tailscale-cli-install.log 2>&1 || fatal "Failed to install Tailscale CLI"
     info "✓ Tailscale CLI installed"
 else
     info "✓ Tailscale CLI already installed"
@@ -198,10 +221,11 @@ fi
 # Step 4: Check/install Ollama
 info "Checking for Ollama..."
 if ! command -v ollama &> /dev/null; then
-    info "Installing Ollama via Homebrew..."
-    brew install ollama || fatal "Failed to install Ollama"
+    info "Installing Ollama via Homebrew (this may take a minute)..."
+    brew install ollama > /tmp/ollama-install.log 2>&1 || fatal "Failed to install Ollama"
 fi
-info "✓ Ollama installed: $(ollama --version 2>/dev/null || echo 'version unknown')"
+OLLAMA_VERSION=$(ollama --version 2>/dev/null | head -n1 || echo 'version unknown')
+info "✓ Ollama installed: $OLLAMA_VERSION"
 
 # Step 5: Validate Ollama binary path
 info "Validating Ollama binary path..."
@@ -317,96 +341,98 @@ if [[ "$TEST_RESPONSE" == "FAILED" ]] || ! echo "$TEST_RESPONSE" | grep -q "obje
 fi
 info "✓ Self-test passed: /v1/models returned valid response"
 
-# Step 12: Prompt for Tailscale machine name
-echo ""
-echo "================================================"
-echo "  Tailscale Configuration"
-echo "================================================"
-echo ""
+# Step 12: Tailscale Configuration Instructions
+important_section "NEXT STEPS: Tailscale Configuration Required"
 
 if [[ -n "$TAILSCALE_IP" ]]; then
-    info "It is recommended to set a custom machine name in Tailscale admin console"
-    echo "  Default recommendation: 'private-ai-server'"
-    echo "  Current Tailscale IP: $TAILSCALE_IP"
+    echo "Your server is running! Complete these 3 configuration steps:"
     echo ""
-    echo "To set the machine name:"
-    echo "  1. Visit https://login.tailscale.com/admin/machines"
-    echo "  2. Find this device (IP: $TAILSCALE_IP)"
-    echo "  3. Click the three dots menu → 'Edit machine...'"
-    echo "  4. Set 'Machine name' to 'private-ai-server' (or your preferred name)"
+    echo "┌─────────────────────────────────────────────────────────────┐"
+    echo "│ Step 1: Set Machine Name                                   │"
+    echo "└─────────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "  Visit: ${BLUE}https://login.tailscale.com/admin/machines${NC}"
+    echo "  Find this device: ${GREEN}$TAILSCALE_IP${NC}"
+    echo "  Set machine name to: ${GREEN}private-ai-server${NC}"
+    echo ""
+    section_break
+    echo "┌─────────────────────────────────────────────────────────────┐"
+    echo "│ Step 2: Configure ACLs (Access Control)                    │"
+    echo "└─────────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "  Visit: ${BLUE}https://login.tailscale.com/admin/acls${NC}"
+    echo ""
+    echo "  Add this to your ACL configuration:"
+    echo ""
+    cat <<'ACL_EOF'
+  {
+    "tagOwners": {
+      "tag:private-ai-server": [],
+      "tag:ai-client": []
+    },
+    "acls": [
+      {
+        "action": "accept",
+        "src": ["tag:ai-client"],
+        "dst": ["tag:private-ai-server:11434"]
+      }
+    ]
+  }
+ACL_EOF
+    echo ""
+    echo "  Then:"
+    echo "    • Tag this server: ${GREEN}tag:private-ai-server${NC}"
+    echo "    • Tag client machines: ${GREEN}tag:ai-client${NC}"
+    echo ""
+    section_break
+    echo "┌─────────────────────────────────────────────────────────────┐"
+    echo "│ Step 3: (Optional) Pre-pull Models                         │"
+    echo "└─────────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "  ${BOLD}ollama pull <model-name>${NC}"
+    echo ""
+    echo "  Popular models:"
+    echo "    • ollama pull qwen2.5-coder:32b"
+    echo "    • ollama pull deepseek-r1:70b"
+    echo "    • ollama pull llama3.2"
     echo ""
 else
-    warn "Tailscale is not connected - skipping machine name configuration"
-    echo "  After connecting Tailscale, you can set the machine name at:"
-    echo "  https://login.tailscale.com/admin/machines"
+    warn "Tailscale is not connected yet!"
+    echo ""
+    echo "After connecting Tailscale, you'll need to:"
+    echo "  1. Set machine name: https://login.tailscale.com/admin/machines"
+    echo "  2. Configure ACLs: https://login.tailscale.com/admin/acls"
     echo ""
 fi
-
-# Step 13: Print Tailscale ACL instructions
-echo "================================================"
-echo "  Tailscale ACL Configuration"
-echo "================================================"
-echo ""
-info "Add the following ACL rule to your Tailscale admin console:"
-echo ""
-echo "Visit: https://login.tailscale.com/admin/acls"
-echo ""
-echo "Add to your ACL configuration:"
-cat <<'ACL_EOF'
-
-{
-  "tagOwners": {
-    "tag:private-ai-server": [],
-    "tag:ai-client": []
-  },
-  "acls": [
-    {
-      "action": "accept",
-      "src": ["tag:ai-client"],
-      "dst": ["tag:private-ai-server:11434"]
-    }
-  ]
-}
-ACL_EOF
-echo ""
-info "After adding the ACL:"
-echo "  1. Tag this server machine with 'tag:private-ai-server'"
-echo "  2. Tag authorized client machines with 'tag:ai-client'"
-echo ""
 
 # Final summary
-echo "================================================"
-echo "  Installation Complete!"
-echo "================================================"
 echo ""
-info "✓ Ollama is running and listening on all interfaces (0.0.0.0:11434)"
+echo ""
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║                                                                ║"
+echo "║                  ✓  Installation Complete!                    ║"
+echo "║                                                                ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
+echo ""
 
 if [[ -n "$TAILSCALE_IP" ]]; then
-    info "✓ Tailscale is connected (IP: $TAILSCALE_IP)"
+    echo "  ✓ Ollama running on: ${GREEN}0.0.0.0:11434${NC}"
+    echo "  ✓ Tailscale connected: ${GREEN}$TAILSCALE_IP${NC}"
+    echo "  ✓ Auto-start on boot: ${GREEN}enabled${NC}"
+    echo ""
+    section_break
+    echo "${BOLD}COMPLETE THE 3 STEPS ABOVE TO FINISH SETUP${NC}"
+    echo ""
+    echo "Quick reference:"
+    echo "  • Restart Ollama: ${BLUE}launchctl kickstart -k $LAUNCHD_DOMAIN/$LAUNCHD_LABEL${NC}"
+    echo "  • View logs: ${BLUE}tail -f /tmp/ollama.stderr.log${NC}"
+    echo "  • Test from client: ${BLUE}curl http://private-ai-server:11434/v1/models${NC}"
+    echo ""
 else
-    warn "⚠ Tailscale is NOT connected - you must connect before clients can reach this server"
-    echo "  Connect with: tailscale up"
-    echo "  Or open the Tailscale GUI app"
+    warn "⚠  Tailscale is NOT connected!"
+    echo ""
+    echo "  Next steps:"
+    echo "    1. Connect Tailscale (tailscale up or open GUI app)"
+    echo "    2. Re-run this script to complete configuration"
     echo ""
 fi
-
-info "✓ LaunchAgent will auto-start Ollama on boot"
-echo ""
-echo "Next steps:"
-
-if [[ -n "$TAILSCALE_IP" ]]; then
-    echo "  1. Set machine name to 'private-ai-server' in Tailscale admin console"
-    echo "  2. Configure Tailscale ACLs (see instructions above)"
-    echo "  3. Tag this machine with 'tag:private-ai-server'"
-    echo "  4. (Optional) Pre-pull models: ollama pull <model-name>"
-    echo "  5. Test from a client: curl http://private-ai-server:11434/v1/models"
-else
-    echo "  1. Connect Tailscale (tailscale up or open GUI app)"
-    echo "  2. Re-run this script to complete Tailscale configuration"
-    echo "  3. Or manually configure: set machine name and ACLs at https://login.tailscale.com/admin"
-fi
-
-echo ""
-echo "To restart Ollama: launchctl kickstart -k $LAUNCHD_DOMAIN/$LAUNCHD_LABEL"
-echo "To view logs: tail -f /tmp/ollama.stderr.log"
-echo ""
