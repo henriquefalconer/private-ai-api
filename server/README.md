@@ -25,7 +25,8 @@ The remote-ollama ai-server configures Ollama to provide secure, remote LLM infe
 | | `tail -f /tmp/ollama.stderr.log` | Monitor error logs |
 | **Check models** | `ollama list` | List all pulled models |
 | **Warm models** | `./scripts/warm-models.sh <model-name>` | Pre-load models into memory for faster response |
-| **Run tests** | `./scripts/test.sh` | Run comprehensive test suite |
+| **Run tests** | `./scripts/test.sh` | Run comprehensive test suite (26 tests) |
+| | `./scripts/test.sh --skip-anthropic-tests` | Skip Anthropic API tests (for Ollama < 0.5.0) |
 | | `./scripts/test.sh --skip-model-tests` | Run tests without model inference |
 | **Uninstall** | `./scripts/uninstall.sh` | Remove server configuration and service |
 
@@ -179,8 +180,11 @@ When to use it:
 The server includes a comprehensive automated test suite that verifies all functionality:
 
 ```bash
-# Run all tests (20 tests covering service status, API endpoints, security, and network)
+# Run all tests (26 tests: service status, OpenAI API, Anthropic API, security, network)
 ./scripts/test.sh
+
+# Skip Anthropic API tests (useful for Ollama versions < 0.5.0)
+./scripts/test.sh --skip-anthropic-tests
 
 # Run tests without model inference (faster, skips model-dependent tests)
 ./scripts/test.sh --skip-model-tests
@@ -193,17 +197,20 @@ The server includes a comprehensive automated test suite that verifies all funct
 
 The test suite validates:
 - **Service Status** (4 tests): LaunchAgent loaded, process running as user, listening on port 11434, responds to HTTP
-- **API Endpoints** (7 tests): All OpenAI-compatible endpoints (`/v1/models`, `/v1/models/{model}`, `/v1/chat/completions`, `/v1/responses`)
+- **OpenAI API** (9 tests): All OpenAI-compatible endpoints (`/v1/models`, `/v1/models/{model}`, `/v1/chat/completions`, `/v1/responses`), streaming, error handling
+- **Anthropic API** (6 tests, v2+): `/v1/messages` endpoint (non-streaming, streaming, system prompts, error handling, multi-turn, usage metrics)
 - **Streaming** (2 tests): SSE chunks, `stream_options.include_usage`
 - **Error Behavior** (2 tests): 404/400 status codes for invalid requests
 - **Security** (3 tests): Process owner is user (not root), logs readable, `OLLAMA_HOST=0.0.0.0` configured
 - **Network** (2 tests): Binds to 0.0.0.0, accessible via localhost and Tailscale IP
 
+**Total**: 26 tests (20 v1 tests + 6 v2+ Anthropic API tests)
+
 ### Sample Output
 
 ```
 remote-ollama ai-server Test Suite
-Running 20 tests
+Running 26 tests
 
 === Service Status Tests ===
 ✓ PASS LaunchAgent is loaded: com.ollama
@@ -211,17 +218,25 @@ Running 20 tests
 ✓ PASS Ollama is listening on port 11434
 ✓ PASS Ollama responds to HTTP requests
 
-=== API Endpoint Tests ===
+=== OpenAI API Endpoint Tests ===
 ✓ PASS GET /v1/models returns valid JSON (1 models)
 ✓ PASS GET /v1/models/{model} returns valid model details
 ✓ PASS POST /v1/chat/completions (non-streaming) succeeded
 ✓ PASS POST /v1/chat/completions (streaming) returns SSE chunks
 
+=== Anthropic API Tests (v2+) ===
+✓ PASS POST /v1/messages (non-streaming) succeeded
+✓ PASS POST /v1/messages (streaming) returns SSE chunks
+✓ PASS POST /v1/messages with system prompt succeeded
+✓ PASS POST /v1/messages error handling works (400/404/500)
+✓ PASS POST /v1/messages multi-turn conversation succeeded
+✓ PASS POST /v1/messages streaming includes usage metrics
+
 ...
 
 Test Summary
 ───────────────────────────────
-Passed:  20
+Passed:  26
 Failed:  0
 Skipped: 0
 Total:   20
