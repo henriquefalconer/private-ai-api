@@ -3,14 +3,16 @@
  SPDX-License-Identifier: Proprietary
 -->
 
-## Implementation Status (v0.0.2-dev)
+## Implementation Status (v0.0.3-dev)
 
-Re-audited 2026-02-10 with deep line-by-line spec-vs-implementation comparison. Previous audit (v0.0.1) incorrectly reported "0 spec compliance gaps." This audit found **29 spec compliance gaps** across all scripts (details below). All 8 spec-required files exist and have core functionality, but UX requirements added to specs were never fully implemented in the client scripts, and several test script UX requirements were missed in both server and client.
+Re-audited 2026-02-10 (third pass) with exhaustive line-by-line spec-vs-implementation comparison using parallel subagents. All previously identified gaps confirmed (prior count of 29 was an arithmetic error; actual was 31). **4 additional gaps** found in `client/scripts/uninstall.sh` (dynamic summary tracking). Total: **35 spec compliance gaps**.
 
 - ✅ 8 of 8 spec-required scripts exist: env.template, server install.sh, server uninstall.sh, server test.sh, client install.sh, client uninstall.sh, client test.sh, warm-models.sh
 - ✅ Spec documentation complete: 7 server + 6 client = 13 spec files, all internally consistent
 - ✅ No TODO/FIXME/HACK/placeholder markers in any source files
-- ⚠️ **29 spec compliance gaps found** (see Priority F below for full list)
+- ✅ `client/config/env.template` — fully compliant (all 4 vars, `export`, `__HOSTNAME__` placeholder, `AIDER_MODEL` commented)
+- ✅ `server/scripts/install.sh` — fully compliant (all functional + UX requirements met)
+- ⚠️ **35 spec compliance gaps found** (see Priority F below for full list)
 - ⏳ **2 documentation polish tasks** blocked until hardware testing complete
 
 # Implementation Plan
@@ -22,13 +24,13 @@ Prioritized task list for achieving full spec implementation of both server and 
 - **Specifications**: COMPLETE (7 server + 6 client = 13 spec files, all include test script specs)
 - **Documentation**: COMPLETE (README.md + SETUP.md for both server and client, plus root README, includes service management)
 - **Server implementation**: install.sh COMPLETE, uninstall.sh HAS GAPS (2), warm-models.sh HAS GAPS (2), test.sh HAS GAPS (6)
-- **Client implementation**: env.template COMPLETE, install.sh HAS GAPS (8), uninstall.sh HAS GAPS (2), test.sh HAS GAPS (9)
+- **Client implementation**: env.template COMPLETE, install.sh HAS GAPS (8), uninstall.sh HAS GAPS (6), test.sh HAS GAPS (9)
 - **UX consistency**: HAS GAPS (2 cross-cutting issues)
 - **Integration testing**: BLOCKED (scripts need gap fixes before hardware testing is meaningful)
 
 ## Remaining Work (Priority Order)
 
-Items sorted by priority -- implement in this order to achieve full spec compliance. Priorities A-D are COMPLETE. **Priority F (29 spec compliance gaps) is the current focus.**
+Items sorted by priority -- implement in this order to achieve full spec compliance. Priorities A-D are COMPLETE. **Priority F (35 spec compliance gaps) is the current focus.**
 
 ### Priority A: server/scripts/uninstall.sh -- ✅ COMPLETE
 - **File**: `server/scripts/uninstall.sh`
@@ -87,9 +89,9 @@ Items sorted by priority -- implement in this order to achieve full spec complia
 - ✅ Add quick-reference card for common operations (start/stop server, switch models, check status)
 - ✅ Add `warm-models.sh` documentation to `server/README.md` and `server/SETUP.md` (script exists in `server/scripts/warm-models.sh` and is spec'd in `server/specs/SCRIPTS.md` lines 25-33 and `server/specs/FILES.md` line 16, but neither user-facing doc mentions it)
 
-### Priority F: Spec Compliance Gaps (29 items) -- NEW
+### Priority F: Spec Compliance Gaps (35 items) -- UPDATED
 
-Deep audit (2026-02-10) comparing every spec requirement line-by-line against implementation. Grouped by script, sorted by priority within each group. Spec line numbers reference the requirement; implementation line numbers reference the current code.
+Deep audit (2026-02-10, re-confirmed 2026-02-10 v3) comparing every spec requirement line-by-line against implementation. All previously identified gaps re-confirmed; 4 additional gaps found in `client/scripts/uninstall.sh` (F6.3-F6.6). Grouped by script, sorted by priority within each group. Spec line numbers reference the requirement; implementation line numbers reference the current code.
 
 #### F1. client/scripts/install.sh -- 8 gaps
 
@@ -236,17 +238,37 @@ Deep audit (2026-02-10) comparing every spec requirement line-by-line against im
   - Implementation: `set -euo pipefail` at line 2; individual steps use `|| warn` but unanticipated failures could terminate script
   - Fix: Review all commands for potential unhandled failures; consider `set +e` for cleanup sections
 
-#### F6. client/scripts/uninstall.sh -- 2 gaps
+#### F6. client/scripts/uninstall.sh -- 6 gaps
 
 - [ ] **F6.1 — Banner lacks explicit purpose statement** (LOW)
   - Spec: `client/specs/SCRIPTS.md` line 51 — "Display script name and purpose at start"
   - Implementation: `client/scripts/uninstall.sh` lines 28-31 show name but not purpose description
   - Fix: Add brief purpose description to banner
 
-- [ ] **F6.2 — Static summary always lists Aider as removed** (LOW)
+- [ ] **F6.2 — Static summary always lists Aider as removed** (HIGH)
   - Spec: `client/specs/SCRIPTS.md` line 54 — Show what was "successfully removed"
   - Implementation: Summary at lines 87-90 always lists "Aider (via pipx)" regardless of whether Aider was actually uninstalled
   - Fix: Make summary conditional on what was actually removed
+
+- [ ] **F6.3 — Static summary always lists shell profile modifications as removed** (HIGH)
+  - Spec: `client/specs/SCRIPTS.md` line 54 — Show what was "successfully removed"
+  - Implementation: Summary at lines 87-90 always lists "Shell profile modifications" even when `REMOVED_COUNT` is 0
+  - Fix: Track what was actually removed in an array and display dynamically
+
+- [ ] **F6.4 — Static summary always lists config directory as removed** (HIGH)
+  - Spec: `client/specs/SCRIPTS.md` line 54 — Show what was "successfully removed"
+  - Implementation: Summary at line 89 always lists `$CLIENT_DIR` even when directory didn't exist (line 78)
+  - Fix: Only list items that were actually removed
+
+- [ ] **F6.5 — Terminal reload reminder outside summary box** (LOW)
+  - Spec: `client/specs/SCRIPTS.md` lines 54-57 — Summary should include reminder to close/reopen terminal
+  - Implementation: Terminal reminder at lines 98-99 appears after summary box, not inside it
+  - Fix: Move terminal reminder inside the summary section
+
+- [ ] **F6.6 — No tracking of Aider removal failure state** (MEDIUM)
+  - Spec: `client/specs/SCRIPTS.md` line 58 — "Graceful degradation: continue with remaining cleanup even if some steps fail"
+  - Implementation: Line 37 `pipx uninstall aider-chat || warn "..."` continues but doesn't track failure for summary
+  - Fix: Track success/failure per step and reflect in final summary
 
 #### F7. UX Consistency Across All Scripts -- cross-cutting
 
@@ -764,7 +786,7 @@ These constraints apply to ALL implementation work and are non-negotiable:
 
 8. **curl-pipe install support** (`client/SETUP.md` lines 11-13): Client install.sh must work when piped from curl. Solution: embed env.template as heredoc fallback; copy uninstall.sh to `~/.private-ai-client/`.
 
-## Spec Audit Findings (2026-02-10, re-audited 2026-02-10)
+## Spec Audit Findings (2026-02-10, re-audited 2026-02-10, v3 2026-02-10)
 
 ### Spec consistency audit
 A comprehensive audit of all 13 specification files was performed to validate internal consistency, cross-file consistency, and completeness:
@@ -774,16 +796,16 @@ A comprehensive audit of all 13 specification files was performed to validate in
 - **All requirements satisfiable**: Current implementation scope can fully satisfy all documented requirements
 - **No TODO/FIXME markers**: All spec files and implementation scripts are complete for v1 scope with no placeholder sections
 
-### Implementation-vs-spec audit (updated 2026-02-10)
-Every implemented script was compared line-by-line against its spec requirements. The previous audit (v0.0.1) only checked core functionality requirements and missed UX requirements. This updated audit covers both.
+### Implementation-vs-spec audit (updated 2026-02-10, v3)
+Every implemented script was compared line-by-line against its spec requirements using parallel subagents. Third audit pass; all 29 original gaps re-confirmed, 4 new gaps found in client/scripts/uninstall.sh.
 
 - **client/config/env.template**: ✅ All 4 variables present and correct, `export` used, `AIDER_MODEL` commented out, `__HOSTNAME__` placeholder correct
-- **server/scripts/install.sh**: ✅ All core functionality requirements met. All UX requirements met (has Homebrew noise suppression, comprehensive Tailscale guidance, boxed sections, interactive flow, final summary with troubleshooting)
+- **server/scripts/install.sh**: ✅ All core functionality requirements met. All UX requirements met (has Homebrew noise suppression, comprehensive Tailscale guidance, boxed sections, interactive flow, final summary with troubleshooting). Near-perfect spec compliance.
 - **server/scripts/uninstall.sh**: ⚠️ Core functionality complete. 2 UX gaps: no error/warning tracking in summary (F5.1), `set -euo pipefail` could conflict with graceful degradation (F5.2)
 - **server/scripts/warm-models.sh**: ⚠️ Core functionality complete. 2 UX gaps: `ollama pull` progress suppressed (F4.1), message format differs from spec (F4.2)
 - **server/scripts/test.sh**: ⚠️ All 20 tests implemented. 6 UX/accuracy gaps: no progress indication (F3.1), no helpful failures (F3.2), banner missing test count (F3.3), verbose mode incomplete (F3.4), include_usage test doesn't verify usage (F3.5), log readability not checked (F3.6)
 - **client/scripts/install.sh**: ⚠️ Core functionality complete. 8 gaps including 3 HIGH: missing Homebrew noise suppression (F1.1), missing Tailscale guidance (F1.2), Tailscale GUI app not installed (F1.3), plus 5 MEDIUM/LOW UX gaps (F1.4-F1.8)
-- **client/scripts/uninstall.sh**: ⚠️ Core functionality complete. 2 LOW gaps: banner lacks purpose (F6.1), static summary (F6.2)
+- **client/scripts/uninstall.sh**: ⚠️ Core functionality complete. 6 gaps: banner lacks purpose (F6.1), static summary always lists Aider (F6.2), static summary always lists shell mods (F6.3), static summary always lists config dir (F6.4), terminal reminder outside summary (F6.5), no failure state tracking (F6.6)
 - **client/scripts/test.sh**: ⚠️ All 27 tests implemented. 9 gaps including 2 HIGH: no progress indication (F2.1), no helpful failures (F2.2), plus 7 MEDIUM/LOW gaps (F2.3-F2.9)
 
 ---
