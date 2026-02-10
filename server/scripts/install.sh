@@ -40,11 +40,17 @@ if [[ "$(uname)" != "Darwin" ]]; then
     fatal "This script requires macOS. Detected: $(uname)"
 fi
 
+MACOS_VERSION=$(sw_vers -productVersion)
+MACOS_MAJOR=$(echo "$MACOS_VERSION" | cut -d. -f1)
+if [[ "$MACOS_MAJOR" -lt 14 ]]; then
+    fatal "This script requires macOS 14 (Sonoma) or later. Detected: $MACOS_VERSION"
+fi
+
 ARCH="$(uname -m)"
 if [[ "$ARCH" != "arm64" ]]; then
     fatal "This script requires Apple Silicon (arm64). Detected: $ARCH"
 fi
-info "✓ macOS with Apple Silicon detected"
+info "✓ macOS $MACOS_VERSION with Apple Silicon detected"
 
 # Step 2: Check for Homebrew
 info "Checking for Homebrew..."

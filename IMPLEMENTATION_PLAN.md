@@ -5,16 +5,16 @@
 
 ## Implementation Status (v0.0.0)
 
-Comprehensive audit completed 2026-02-10. Core implementation is mostly complete, with remaining work itemized below.
+Comprehensive audit completed 2026-02-10. Updated 2026-02-10 to reflect completion of server uninstall.sh and macOS version check. Core implementation is mostly complete, with remaining work itemized below.
 
-- ✅ 5 of 8 spec-required scripts implemented: env.template, server install.sh, client install.sh, client uninstall.sh, warm-models.sh
+- ✅ 6 of 8 spec-required scripts implemented: env.template, server install.sh, server uninstall.sh, client install.sh, client uninstall.sh, warm-models.sh
 - ✅ Spec documentation complete: 7 server + 6 client = 13 spec files, all internally consistent
 - ✅ Service management documentation: start/stop/restart commands in README and SETUP for server; client clarifies no daemon
 - ✅ All implemented scripts syntax-checked for bash compliance (set -euo pipefail, no undefined variables)
 - ✅ No TODO/FIXME/HACK/placeholder markers in any source files
 - ✅ Tag 0.0.0 created marking initial implementation
-- ⏳ **3 scripts not yet implemented**: server uninstall.sh, server test.sh, client test.sh
-- ⏳ **1 spec compliance gap** in server install.sh (see Priority B in Remaining Work below)
+- ⏳ **2 scripts not yet implemented**: server test.sh, client test.sh
+- ⏳ **0 spec compliance gaps** (macOS version check completed in server install.sh)
 - ⏳ **3 documentation polish tasks** blocked until testing complete
 
 # Implementation Plan
@@ -25,7 +25,7 @@ Prioritized task list for achieving full spec implementation of both server and 
 
 - **Specifications**: COMPLETE (7 server + 6 client = 13 spec files, all include test script specs)
 - **Documentation**: COMPLETE (README.md + SETUP.md for both server and client, plus root README, includes service management)
-- **Server implementation**: install.sh COMPLETE (with 1 spec gap), uninstall.sh NOT IMPLEMENTED, warm-models.sh COMPLETE, test.sh NOT IMPLEMENTED
+- **Server implementation**: install.sh COMPLETE, uninstall.sh COMPLETE, warm-models.sh COMPLETE, test.sh NOT IMPLEMENTED
 - **Client implementation**: env.template COMPLETE, install.sh COMPLETE, uninstall.sh COMPLETE, test.sh NOT IMPLEMENTED
 - **Integration testing**: BLOCKED (test scripts not yet implemented; hardware testing awaiting test scripts)
 
@@ -33,28 +33,28 @@ Prioritized task list for achieving full spec implementation of both server and 
 
 Items sorted by priority -- implement in this order to achieve full spec compliance.
 
-### Priority A: server/scripts/uninstall.sh -- NOT IMPLEMENTED
-- **File**: `server/scripts/uninstall.sh` (does not exist)
+### Priority A: server/scripts/uninstall.sh -- ✅ COMPLETE
+- **File**: `server/scripts/uninstall.sh`
 - **Spec**: `server/specs/SCRIPTS.md` lines 21-29, `server/specs/FILES.md` line 15
 - **Effort**: Small-medium
-- **Dependencies**: None (reverses what install.sh creates)
-- **Requirements**:
-  - Stop the Ollama LaunchAgent service via `launchctl bootout gui/$(id -u)/com.ollama`
-  - Remove `~/Library/LaunchAgents/com.ollama.plist`
-  - Optionally clean up Ollama logs from `/tmp/` (`ollama.stdout.log`, `ollama.stderr.log`)
-  - Leave Homebrew, Tailscale, and Ollama binary untouched
-  - Leave downloaded models in `~/.ollama/models/` untouched (valuable data)
-  - Provide clear summary of what was removed and what remains
-  - Handle edge cases gracefully (service not running, plist missing, partial installation)
-  - Use `set -euo pipefail`, color-coded output, match style of existing scripts
-  - Be idempotent (safe to re-run)
-  - No sudo required
+- **Status**: All 11 spec requirements met:
+  - ✅ Stops the Ollama LaunchAgent service via `launchctl bootout gui/$(id -u)/com.ollama`
+  - ✅ Removes `~/Library/LaunchAgents/com.ollama.plist`
+  - ✅ Cleans up Ollama logs from `/tmp/` (`ollama.stdout.log`, `ollama.stderr.log`)
+  - ✅ Leaves Homebrew, Tailscale, and Ollama binary untouched
+  - ✅ Leaves downloaded models in `~/.ollama/models/` untouched (valuable data)
+  - ✅ Provides clear summary of what was removed and what remains
+  - ✅ Handles edge cases gracefully (service not running, plist missing, partial installation)
+  - ✅ Uses `set -euo pipefail`, color-coded output, matches style of existing scripts
+  - ✅ Idempotent (safe to re-run)
+  - ✅ No sudo required
+  - ✅ Script is executable and syntax-checked
 
-### Priority B: server/scripts/install.sh -- macOS version check MISSING
-- **File**: `server/scripts/install.sh` (exists, 280 lines)
+### Priority B: server/scripts/install.sh -- macOS version check ✅ COMPLETE
+- **File**: `server/scripts/install.sh`
 - **Spec**: `server/specs/REQUIREMENTS.md` line 5: "macOS 14 Sonoma or later"
 - **Effort**: Trivial (add ~5 lines)
-- **Gap**: Script checks for macOS (Darwin) and Apple Silicon (arm64) but does NOT check macOS version >= 14. Should use `sw_vers -productVersion` and compare major version >= 14, matching what client/scripts/install.sh already does (lines 45-53).
+- **Status**: ✅ Added macOS 14+ version check using `sw_vers -productVersion`, matching implementation pattern from client/scripts/install.sh lines 49-53. Validates major version >= 14 as specified in REQUIREMENTS.md line 5.
 
 ### Priority C: server/scripts/test.sh -- NOT IMPLEMENTED
 - **File**: `server/scripts/test.sh` (does not exist)
@@ -111,7 +111,7 @@ Every spec file was read and cross-referenced. Findings are grouped below.
 |-----------|------|-------------|--------|
 | Client | `client/config/env.template` | `client/specs/FILES.md` line 16 | COMPLETE |
 | Server | `server/scripts/install.sh` | `server/specs/FILES.md` line 14 | COMPLETE |
-| Server | `server/scripts/uninstall.sh` | `server/specs/FILES.md` line 15 | NOT IMPLEMENTED |
+| Server | `server/scripts/uninstall.sh` | `server/specs/FILES.md` line 15 | COMPLETE |
 | Client | `client/scripts/install.sh` | `client/specs/FILES.md` line 12 | COMPLETE |
 | Client | `client/scripts/uninstall.sh` | `client/specs/FILES.md` line 13 | COMPLETE |
 | Server | `server/scripts/warm-models.sh` | `server/specs/FILES.md` line 16 | COMPLETE |
@@ -201,7 +201,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 
 ## Priority 2 -- Server: `server/scripts/install.sh`
 
-**Status**: COMPLETE (1 spec gap: missing macOS 14+ version check -- see Priority B above)
+**Status**: COMPLETE
 **Effort**: Large (complex multi-step installer)
 **Dependencies**: None (server is independent of client)
 **Blocks**: Priority 5 (warm-models.sh), Priority 6 (integration testing)
@@ -605,11 +605,11 @@ A comprehensive audit of all 13 specification files was performed to validate in
 Every implemented script was compared line-by-line against its spec requirements:
 
 - **client/config/env.template**: All 4 variables present and correct, `export` used, `AIDER_MODEL` commented out, `__HOSTNAME__` placeholder correct
-- **server/scripts/install.sh**: 25 of 26 spec requirements implemented; 1 gap (missing macOS 14+ version check from REQUIREMENTS.md)
+- **server/scripts/install.sh**: All 26 spec requirements fully implemented (macOS 14+ version check completed 2026-02-10)
+- **server/scripts/uninstall.sh**: All 11 spec requirements fully implemented (completed 2026-02-10); correctly reverses all install.sh changes
 - **client/scripts/install.sh**: All SCRIPTS.md requirements implemented; all REQUIREMENTS.md requirements implemented; all API_CONTRACT.md variables correct; dual-mode (curl-pipe + local clone) working; idempotent
 - **client/scripts/uninstall.sh**: All 4 SCRIPTS.md requirements fully implemented; correctly reverses all install.sh changes
 - **server/scripts/warm-models.sh**: All 7 SCRIPTS.md requirements fully implemented
-- **server/scripts/uninstall.sh**: NOT IMPLEMENTED (spec exists at server/specs/SCRIPTS.md lines 21-29)
 - **server/scripts/test.sh**: NOT IMPLEMENTED (spec exists at server/specs/SCRIPTS.md lines 43-88)
 - **client/scripts/test.sh**: NOT IMPLEMENTED (spec exists at client/specs/SCRIPTS.md lines 20-78)
 
