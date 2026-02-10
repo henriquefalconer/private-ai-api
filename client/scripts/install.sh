@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # remote-ollama ai-client install script
-# Configures environment to connect to remote-ollama ai-server via Tailscale
+# Configures environment to connect to remote-ollama ai-serverale
 # Works both from local clone and via curl-pipe installation
 # Source: client/specs/* and client/SETUP.md
 
@@ -95,27 +95,60 @@ if ! command -v brew &> /dev/null; then
 fi
 info "✓ Homebrew found: $(brew --version | head -n1)"
 
-# Step 4: Check/install Python 3.10+
-info "Checking for Python 3.10+..."
-PYTHON_VERSION=""
-if command -v python3 &> /dev/null; then
-    PYTHON_VERSION=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
-    PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
-    PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
+# Step 4: Check/install Python 3.13 (preferred for Aider compatibility)
+info "Checking for Python 3.13 (recommended for Aider)..."
 
-    if [[ "$PYTHON_MAJOR" -ge 3 && "$PYTHON_MINOR" -ge 10 ]]; then
-        info "✓ Python $PYTHON_VERSION found"
-    else
-        warn "Python $PYTHON_VERSION is too old (need 3.10+)"
-        info "Installing Python 3 via Homebrew (this may take a minute)..."
-        brew install python3 > /tmp/python3-install.log 2>&1 || fatal "Failed to install Python"
-        info "✓ Python 3 installed"
-    fi
+# Python 3.13 provides the best compatibility with Aider's dependencies
+# Python 3.14+ may have issues with older packages like numpy 1.24.x
+PYTHON_PATH=""
+PYTHON_VERSION=""
+
+# Check for Python 3.13 specifically (via Homebrew)
+PYTHON313_PATH="/opt/homebrew/opt/python@3.13/libexec/bin/python"
+if [[ -x "$PYTHON313_PATH" ]]; then
+    PYTHON_PATH="$PYTHON313_PATH"
+    PYTHON_VERSION=$($PYTHON_PATH --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+    info "✓ Python $PYTHON_VERSION found (via python@3.13)"
 else
-    info "Installing Python 3 via Homebrew (this may take a minute)..."
-    brew install python3 > /tmp/python3-install.log 2>&1 || fatal "Failed to install Python"
-    info "✓ Python 3 installed"
+    # Check if system python3 is 3.13
+    if command -v python3 &> /dev/null; then
+        PYTHON_VERSION=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+        PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
+        PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
+
+        if [[ "$PYTHON_MAJOR" -eq 3 && "$PYTHON_MINOR" -eq 13 ]]; then
+            PYTHON_PATH=$(command -v python3)
+            info "✓ Python $PYTHON_VERSION found"
+        elif [[ "$PYTHON_MAJOR" -ge 3 && "$PYTHON_MINOR" -ge 14 ]]; then
+            warn "Python $PYTHON_VERSION detected - may have compatibility issues with Aider"
+            warn "Installing Python 3.13 for better package compatibility..."
+            brew install python@3.13 > /tmp/python313-install.log 2>&1 || fatal "Failed to install Python 3.13"
+            PYTHON_PATH="$PYTHON313_PATH"
+            PYTHON_VERSION=$($PYTHON_PATH --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+            info "✓ Python $PYTHON_VERSION installed"
+        elif [[ "$PYTHON_MAJOR" -eq 3 && "$PYTHON_MINOR" -ge 10 ]]; then
+            # Python 3.10-3.12 are also acceptable
+            PYTHON_PATH=$(command -v python3)
+            info "✓ Python $PYTHON_VERSION found (acceptable)"
+        else
+            warn "Python $PYTHON_VERSION is too old (need 3.10+)"
+            info "Installing Python 3.13 via Homebrew (this may take a minute)..."
+            brew install python@3.13 > /tmp/python313-install.log 2>&1 || fatal "Failed to install Python 3.13"
+            PYTHON_PATH="$PYTHON313_PATH"
+            PYTHON_VERSION=$($PYTHON_PATH --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+            info "✓ Python $PYTHON_VERSION installed"
+        fi
+    else
+        # No Python found, install 3.13
+        info "Installing Python 3.13 via Homebrew (this may take a minute)..."
+        brew install python@3.13 > /tmp/python313-install.log 2>&1 || fatal "Failed to install Python 3.13"
+        PYTHON_PATH="$PYTHON313_PATH"
+        PYTHON_VERSION=$($PYTHON_PATH --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+        info "✓ Python $PYTHON_VERSION installed"
+    fi
 fi
+
+info "Using Python: $PYTHON_PATH"
 
 # Step 5: Check/install Tailscale
 info "Checking for Tailscale..."
@@ -348,15 +381,30 @@ fi
 info "Running pipx ensurepath..."
 pipx ensurepath || warn "pipx ensurepath failed (non-fatal)"
 
-# Step 11: Install Aider
+# Step 11: Install Aider with specific Python version
 info "Checking for Aider..."
 if pipx list 2>/dev/null | grep -q aider-chat; then
     info "✓ Aider already installed, upgrading..."
     pipx upgrade aider-chat > /tmp/aider-upgrade.log 2>&1 || warn "Failed to upgrade Aider (non-fatal)"
 else
-    info "Installing Aider via pipx (this may take a minute)..."
-    pipx install aider-chat > /tmp/aider-install.log 2>&1 || fatal "Failed to install Aider"
-    info "✓ Aider installed"
+    info "Installing Aider via pipx with Python $PYTHON_VERSION (this may take a few minutes)..."
+    # Use specific Python version to avoid compatibility issues
+    if pipx install aider-chat --python "$PYTHON_PATH" > /tmp/aider-install.log 2>&1; then
+        info "✓ Aider installed successfully"
+    else
+        error "Failed to install Aider"
+        echo ""
+        echo "Installation log saved to: /tmp/aider-install.log"
+        echo "Common issues:"
+        echo "  • Python version compatibility (requires 3.10-3.13)"
+        echo "  • Network connectivity during package download"
+        echo "  • Disk space or permissions"
+        echo ""
+        echo "To debug, check the log file or try manually:"
+        echo "  pipx install aider-chat --python $PYTHON_PATH --verbose"
+        echo ""
+        fatal "Aider installation failed"
+    fi
 fi
 
 # Step 12: Copy uninstall.sh for curl-pipe users
@@ -396,8 +444,7 @@ else
     warn "Could not connect to server at $TEST_URL"
     echo ""
     echo "Possible reasons:"
-    echo "  1. Server is not running yet (install ai-server first)"
-    echo "  2. Tailscale ACLs not configured (check admin console)"
+    echo "  1. Server is not running yet (install ai-server fai-server. Tailscale ACLs not configured (check admin console)"
     echo "  3. This device not tagged with 'tag:ai-client'"
     echo "  4. Server hostname '$SERVER_HOSTNAME' is incorrect"
     echo ""
