@@ -5,14 +5,14 @@
 
 # remote-ollama
 
-A monorepo containing both server and client components for securely accessing your Ollama server remotely from anywhere.
+A monorepo containing both server and client components for secure remote access to self-hosted Ollama.
 
 ## Project Structure
 
 This monorepo contains two main components:
 
 - **server/** – Ollama server configuration that exposes OpenAI-compatible API endpoints
-- **client/** – Client-side setup and configuration for connecting to the remote Ollama server
+- **client/** – Client-side setup and configuration for connecting to remote Ollama
 
 ## Overview
 
@@ -26,8 +26,8 @@ The remote-ollama project provides a complete solution for running Ollama on you
 
 ### Client (ai-client)
 - macOS environment setup and configuration
-- Connects to the remote Ollama server via Tailscale
-- Configures tools like Aider to use your Ollama server automatically
+- Connects to remote Ollama server via Tailscale
+- Configures tools like Aider to use remote Ollama automatically
 - Zero manual configuration per session
 
 ## Quick Start

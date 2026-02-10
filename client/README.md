@@ -1,22 +1,22 @@
 # ai-client
 
-macOS client setup for connecting to your remote Ollama server.
+macOS client setup for connecting to remote Ollama.
 
 ## Overview
 
-The ai-client is a one-time installer that configures your macOS environment to use your remote Ollama server's OpenAI-compatible API.
+The ai-client is a one-time installer that configures your macOS environment to use remote Ollama via OpenAI-compatible API.
 
 After installation:
-- Aider (and other OpenAI-compatible tools) connect to your Ollama server automatically
+- Aider (and other OpenAI-compatible tools) connect to remote Ollama automatically
 - Zero manual configuration per session
-- All API calls go through the secure Tailscale network to your Ollama server
+- All API calls go through the secure Tailscale network
 - No third-party cloud services involved
 
 ## What This Does
 
 1. Installs and configures Tailscale membership
-2. Creates environment variables pointing to your remote Ollama server
-3. Installs Aider with automatic Ollama server connection
+2. Creates environment variables pointing to remote Ollama server
+3. Installs Aider with automatic Ollama connection
 4. Provides clean uninstallation
 
 ## Quick Reference
@@ -25,10 +25,10 @@ After installation:
 |-----------|---------|-------------|
 | **Start Aider** | `aider` | Launch Aider in interactive mode |
 | | `aider --yes` | Launch Aider in YOLO mode (auto-accept changes) |
-| **Check config** | `echo $OPENAI_API_BASE` | Display configured Ollama API base URL |
+| **Check config** | `echo $OPENAI_API_BASE` | Display configured API base URL |
 | | `echo $OPENAI_API_KEY` | Display configured API key |
 | | `cat ~/.ai-client/env` | View all environment variables |
-| **Test connectivity** | `curl $OPENAI_API_BASE/models` | Test connection to Ollama server |
+| **Test connectivity** | `curl $OPENAI_API_BASE/models` | Test connection to remote Ollama |
 | | `tailscale status` | Check Tailscale connection status |
 | **Run tests** | `./scripts/test.sh` | Run comprehensive test suite |
 | | `./scripts/test.sh --skip-server` | Run tests without server connectivity checks |
@@ -59,7 +59,7 @@ Quick start:
 
 The client relies on the exact API contract documented in [specs/API_CONTRACT.md](specs/API_CONTRACT.md).
 
-The Ollama server guarantees:
+The remote Ollama server provides:
 - OpenAI-compatible `/v1` endpoints (native Ollama feature)
 - Hostname resolution via Tailscale
 - Support for streaming, JSON mode, tool calling
@@ -67,7 +67,7 @@ The Ollama server guarantees:
 
 ## Usage
 
-The client has **no persistent daemon or background service**. It only configures environment variables that tools use to connect to your remote Ollama server.
+The client has **no persistent daemon or background service**. It only configures environment variables that tools use to connect to remote Ollama.
 
 ### Running Aider
 
@@ -77,11 +77,11 @@ aider                     # interactive mode
 aider --yes               # YOLO mode
 ```
 
-Aider automatically reads the environment variables and connects to your remote Ollama server.
+Aider automatically reads the environment variables and connects to remote Ollama.
 
 ### Using Other Tools
 
-Any tool that supports custom OpenAI base URLs will work automatically with your Ollama server:
+Any tool that supports custom OpenAI base URLs will work automatically:
 ```bash
 # Environment variables are already set
 echo $OPENAI_API_BASE    # http://ai-server:11434/v1

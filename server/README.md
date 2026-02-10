@@ -4,12 +4,12 @@ Ollama server configuration for secure remote access from Apple Silicon Macs wit
 
 ## Overview
 
-The ai-server configures Ollama to provide secure, remote LLM inference that:
+The ai-server configures Ollama to provide secure, remote LLM inference with:
 - Exposes Ollama's native OpenAI-compatible `/v1` endpoints
 - Runs exclusively on a dedicated, always-on Mac
-- Has zero public internet exposure
-- Uses Tailscale for secure remote access
-- Requires no third-party cloud dependencies beyond Ollama and Tailscale
+- Zero public internet exposure
+- Tailscale for secure remote access
+- No third-party cloud dependencies beyond Ollama and Tailscale
 
 ## Quick Reference
 
@@ -53,9 +53,9 @@ Ollama exposes OpenAI-compatible endpoints at:
 http://<tailscale-assigned-ip>:11434/v1
 ```
 
-Supported Ollama endpoints:
+Supported endpoints:
 - `/v1/chat/completions` (streaming, JSON mode, tool calling)
-- `/v1/models`
+- `/v1/models` (list available models)
 - `/v1/responses`
 
 Full API contract is documented in [../client/specs/API_CONTRACT.md](../client/specs/API_CONTRACT.md).
