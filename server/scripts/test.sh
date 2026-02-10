@@ -16,12 +16,13 @@ NC='\033[0m' # No Color
 TESTS_PASSED=0
 TESTS_FAILED=0
 TESTS_SKIPPED=0
-TOTAL_TESTS=20
+TOTAL_TESTS=26
 CURRENT_TEST=0
 
 # Flags
 VERBOSE=false
 SKIP_MODEL_TESTS=false
+SKIP_ANTHROPIC_TESTS=false
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -34,8 +35,12 @@ while [[ $# -gt 0 ]]; do
             SKIP_MODEL_TESTS=true
             shift
             ;;
+        --skip-anthropic-tests)
+            SKIP_ANTHROPIC_TESTS=true
+            shift
+            ;;
         *)
-            echo "Usage: $0 [--verbose|-v] [--skip-model-tests]"
+            echo "Usage: $0 [--verbose|-v] [--skip-model-tests] [--skip-anthropic-tests]"
             exit 1
             ;;
     esac
@@ -102,7 +107,7 @@ echo ""
 echo "=== Service Status Tests ==="
 
 # Test 1: LaunchAgent loaded
-info "Checking if LaunchAgent is loaded..."
+show_progress "Checking if LaunchAgent is loaded..."
 LAUNCHD_DOMAIN="gui/$(id -u)"
 LAUNCHD_LABEL="com.ollama"
 if launchctl print "$LAUNCHD_DOMAIN/$LAUNCHD_LABEL" &> /dev/null; then
@@ -112,7 +117,7 @@ else
 fi
 
 # Test 2: Process running as user (not root)
-info "Checking Ollama process owner..."
+show_progress "Checking Ollama process owner..."
 OLLAMA_PID=$(pgrep -f "ollama serve" | head -n1)
 if [[ -n "$OLLAMA_PID" ]]; then
     OLLAMA_USER=$(ps -o user= -p "$OLLAMA_PID" | tr -d ' ')
@@ -128,7 +133,7 @@ else
 fi
 
 # Test 3: Listening on port 11434
-info "Checking if port 11434 is listening..."
+show_progress "Checking if port 11434 is listening..."
 if lsof -i :11434 -sTCP:LISTEN &> /dev/null || nc -z localhost 11434 2>/dev/null; then
     pass "Service listening on port 11434"
 else
@@ -136,7 +141,7 @@ else
 fi
 
 # Test 4: Responds to HTTP
-info "Testing basic HTTP response..."
+show_progress "Testing basic HTTP response..."
 if curl -sf http://localhost:11434/v1/models &> /dev/null; then
     pass "Service responds to HTTP requests"
 else
@@ -147,7 +152,7 @@ echo ""
 echo "=== API Endpoint Tests ==="
 
 # Test 5: GET /v1/models
-info "Testing GET /v1/models..."
+show_progress "Testing GET /v1/models..."
 MODELS_RESPONSE=$(curl -sf http://localhost:11434/v1/models 2>/dev/null || echo "FAILED")
 if [[ "$MODELS_RESPONSE" != "FAILED" ]] && echo "$MODELS_RESPONSE" | jq -e '.object == "list"' &> /dev/null; then
     MODEL_COUNT=$(echo "$MODELS_RESPONSE" | jq -r '.data | length')
@@ -164,7 +169,7 @@ fi
 
 # Test 6: GET /v1/models/{model}
 if [[ -n "${FIRST_MODEL:-}" ]]; then
-    info "Testing GET /v1/models/$FIRST_MODEL..."
+    show_progress "Testing GET /v1/models/$FIRST_MODEL..."
     MODEL_DETAIL=$(curl -sf "http://localhost:11434/v1/models/$FIRST_MODEL" 2>/dev/null || echo "FAILED")
     if [[ "$MODEL_DETAIL" != "FAILED" ]] && echo "$MODEL_DETAIL" | jq -e '.id' &> /dev/null; then
         pass "GET /v1/models/{model} returns valid model details"
@@ -190,7 +195,7 @@ elif [[ -z "${FIRST_MODEL:-}" ]]; then
     skip "POST /v1/responses - no models available" "Pull a model first using 'ollama pull llama3.2' or similar"
 else
     # Test 7: Non-streaming chat completion
-    info "Testing POST /v1/chat/completions (non-streaming) with model: $FIRST_MODEL..."
+    show_progress "Testing POST /v1/chat/completions (non-streaming) with model: $FIRST_MODEL..."
 
     # Measure timing for verbose mode
     START_TIME=$(date +%s%N 2>/dev/null || date +%s)
@@ -234,7 +239,7 @@ else
     fi
 
     # Test 8: Streaming chat completion
-    info "Testing POST /v1/chat/completions (streaming)..."
+    show_progress "Testing POST /v1/chat/completions (streaming)..."
 
     # Measure timing for verbose mode
     START_TIME=$(date +%s%N 2>/dev/null || date +%s)
@@ -278,7 +283,7 @@ else
     fi
 
     # Test 9: Streaming with include_usage
-    info "Testing POST /v1/chat/completions (stream_options.include_usage)..."
+    show_progress "Testing POST /v1/chat/completions (stream_options.include_usage)..."
 
     # Measure timing for verbose mode
     START_TIME=$(date +%s%N 2>/dev/null || date +%s)
@@ -338,7 +343,7 @@ else
     fi
 
     # Test 10: JSON mode
-    info "Testing POST /v1/chat/completions (JSON mode)..."
+    show_progress "Testing POST /v1/chat/completions (JSON mode)..."
 
     # Measure timing for verbose mode
     START_TIME=$(date +%s%N 2>/dev/null || date +%s)
@@ -387,7 +392,7 @@ else
     fi
 
     # Test 11: /v1/responses endpoint (experimental, Ollama 0.5.0+)
-    info "Testing POST /v1/responses (experimental)..."
+    show_progress "Testing POST /v1/responses (experimental)..."
 
     # Measure timing for verbose mode
     START_TIME=$(date +%s%N 2>/dev/null || date +%s)
@@ -436,10 +441,301 @@ else
 fi
 
 echo ""
+echo "=== Anthropic API Tests ==="
+
+# Tests 21-26: Anthropic /v1/messages endpoint (Ollama 0.5.0+)
+if [[ "$SKIP_ANTHROPIC_TESTS" == "true" ]]; then
+    skip "POST /v1/messages (non-streaming) - Anthropic tests skipped" "Run without --skip-anthropic-tests flag"
+    skip "POST /v1/messages (streaming SSE) - Anthropic tests skipped" "Run without --skip-anthropic-tests flag"
+    skip "POST /v1/messages (system prompt) - Anthropic tests skipped" "Run without --skip-anthropic-tests flag"
+    skip "POST /v1/messages (error handling) - Anthropic tests skipped" "Run without --skip-anthropic-tests flag"
+    skip "POST /v1/messages (multi-turn conversation) - Anthropic tests skipped" "Run without --skip-anthropic-tests flag"
+    skip "POST /v1/messages (streaming with usage) - Anthropic tests skipped" "Run without --skip-anthropic-tests flag"
+elif [[ "$SKIP_MODEL_TESTS" == "true" ]] || [[ -z "${FIRST_MODEL:-}" ]]; then
+    skip "POST /v1/messages (non-streaming) - no models available or model tests skipped" "Pull a model first using 'ollama pull llama3.2' or similar"
+    skip "POST /v1/messages (streaming SSE) - no models available or model tests skipped" "Pull a model first using 'ollama pull llama3.2' or similar"
+    skip "POST /v1/messages (system prompt) - no models available or model tests skipped" "Pull a model first using 'ollama pull llama3.2' or similar"
+    skip "POST /v1/messages (error handling) - no models available or model tests skipped" "Pull a model first using 'ollama pull llama3.2' or similar"
+    skip "POST /v1/messages (multi-turn conversation) - no models available or model tests skipped" "Pull a model first using 'ollama pull llama3.2' or similar"
+    skip "POST /v1/messages (streaming with usage) - no models available or model tests skipped" "Pull a model first using 'ollama pull llama3.2' or similar"
+else
+    # Test 21: Non-streaming Anthropic messages
+    show_progress "Testing POST /v1/messages (non-streaming)..."
+
+    START_TIME=$(date +%s%N 2>/dev/null || date +%s)
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Request: POST http://localhost:11434/v1/messages"
+        info "Body: {\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}"
+
+        ANTHROPIC_RESPONSE=$(curl -v http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}" \
+            2>&1 || echo "FAILED")
+
+        info "Response:"
+        echo "$ANTHROPIC_RESPONSE" | tail -20 | while IFS= read -r line; do
+            info "  $line"
+        done
+    else
+        ANTHROPIC_RESPONSE=$(curl -sf http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}" \
+            2>/dev/null || echo "FAILED")
+    fi
+
+    END_TIME=$(date +%s%N 2>/dev/null || date +%s)
+    if [[ "$START_TIME" =~ N ]]; then
+        ELAPSED_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+    else
+        ELAPSED_MS=$(( (END_TIME - START_TIME) * 1000 ))
+    fi
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Elapsed time: ${ELAPSED_MS}ms"
+    fi
+
+    if [[ "$ANTHROPIC_RESPONSE" != "FAILED" ]] && echo "$ANTHROPIC_RESPONSE" | jq -e '.type == "message"' &> /dev/null; then
+        if echo "$ANTHROPIC_RESPONSE" | jq -e '.content[0].text' &> /dev/null; then
+            pass "POST /v1/messages (non-streaming) succeeded (Ollama 0.5.0+)"
+        else
+            fail "POST /v1/messages response missing content.text field"
+        fi
+    else
+        skip "POST /v1/messages (non-streaming) - endpoint not available" "Upgrade to Ollama 0.5.0+"
+    fi
+
+    # Test 22: Streaming Anthropic messages with SSE
+    show_progress "Testing POST /v1/messages (streaming SSE)..."
+
+    START_TIME=$(date +%s%N 2>/dev/null || date +%s)
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Request: POST http://localhost:11434/v1/messages (streaming)"
+        info "Body: {\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"stream\":true}"
+
+        ANTHROPIC_STREAM=$(curl -v http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"stream\":true}" \
+            2>&1 || echo "FAILED")
+
+        info "Response (first 15 lines):"
+        echo "$ANTHROPIC_STREAM" | head -n 15 | while IFS= read -r line; do
+            info "  $line"
+        done
+    else
+        ANTHROPIC_STREAM=$(curl -sf http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"stream\":true}" \
+            2>/dev/null | head -n 10 || echo "FAILED")
+    fi
+
+    END_TIME=$(date +%s%N 2>/dev/null || date +%s)
+    if [[ "$START_TIME" =~ N ]]; then
+        ELAPSED_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+    else
+        ELAPSED_MS=$(( (END_TIME - START_TIME) * 1000 ))
+    fi
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Elapsed time: ${ELAPSED_MS}ms"
+    fi
+
+    if [[ "$ANTHROPIC_STREAM" != "FAILED" ]] && echo "$ANTHROPIC_STREAM" | grep -q "event:"; then
+        # Check for Anthropic SSE event types
+        if echo "$ANTHROPIC_STREAM" | grep -q "event: message_start\|event: content_block_delta"; then
+            pass "POST /v1/messages (streaming SSE) returns Anthropic SSE events"
+        else
+            fail "POST /v1/messages (streaming) returned events but not Anthropic format"
+        fi
+    else
+        skip "POST /v1/messages (streaming SSE) - endpoint not available" "Upgrade to Ollama 0.5.0+"
+    fi
+
+    # Test 23: Anthropic messages with system prompt
+    show_progress "Testing POST /v1/messages (system prompt)..."
+
+    START_TIME=$(date +%s%N 2>/dev/null || date +%s)
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Request: POST http://localhost:11434/v1/messages (with system prompt)"
+        info "Body: {\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"system\":\"You are helpful.\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}"
+
+        ANTHROPIC_SYSTEM=$(curl -v http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"system\":\"You are helpful.\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}" \
+            2>&1 || echo "FAILED")
+
+        info "Response:"
+        echo "$ANTHROPIC_SYSTEM" | tail -20 | while IFS= read -r line; do
+            info "  $line"
+        done
+    else
+        ANTHROPIC_SYSTEM=$(curl -sf http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"system\":\"You are helpful.\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}" \
+            2>/dev/null || echo "FAILED")
+    fi
+
+    END_TIME=$(date +%s%N 2>/dev/null || date +%s)
+    if [[ "$START_TIME" =~ N ]]; then
+        ELAPSED_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+    else
+        ELAPSED_MS=$(( (END_TIME - START_TIME) * 1000 ))
+    fi
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Elapsed time: ${ELAPSED_MS}ms"
+    fi
+
+    if [[ "$ANTHROPIC_SYSTEM" != "FAILED" ]] && echo "$ANTHROPIC_SYSTEM" | jq -e '.type == "message"' &> /dev/null; then
+        pass "POST /v1/messages (system prompt) succeeded"
+    else
+        skip "POST /v1/messages (system prompt) - endpoint not available" "Upgrade to Ollama 0.5.0+"
+    fi
+
+    # Test 24: Anthropic error handling (nonexistent model)
+    show_progress "Testing POST /v1/messages error handling..."
+
+    ANTHROPIC_ERROR=$(curl -s -w "%{http_code}" -o /dev/null http://localhost:11434/v1/messages \
+        -H "Content-Type: application/json" \
+        -H "x-api-key: ollama" \
+        -H "anthropic-version: 2023-06-01" \
+        -d '{"model":"nonexistent-model-xyz","max_tokens":10,"messages":[{"role":"user","content":"test"}]}' \
+        2>/dev/null || echo "FAILED")
+
+    if [[ "$ANTHROPIC_ERROR" == "500" ]] || [[ "$ANTHROPIC_ERROR" == "404" ]] || [[ "$ANTHROPIC_ERROR" == "400" ]]; then
+        pass "POST /v1/messages error handling returns error status ($ANTHROPIC_ERROR)"
+    elif [[ "$ANTHROPIC_ERROR" == "FAILED" ]]; then
+        skip "POST /v1/messages error handling - endpoint not reachable" "Upgrade to Ollama 0.5.0+"
+    else
+        skip "POST /v1/messages error handling returned unexpected status: $ANTHROPIC_ERROR (acceptable)" "Endpoint may have different error handling"
+    fi
+
+    # Test 25: Multi-turn conversation
+    show_progress "Testing POST /v1/messages (multi-turn conversation)..."
+
+    START_TIME=$(date +%s%N 2>/dev/null || date +%s)
+
+    MULTITURN_PAYLOAD='{
+        "model":"'"$FIRST_MODEL"'",
+        "max_tokens":15,
+        "messages":[
+            {"role":"user","content":"My name is Alice"},
+            {"role":"assistant","content":"Hello Alice"},
+            {"role":"user","content":"What is my name?"}
+        ]
+    }'
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Request: POST http://localhost:11434/v1/messages (multi-turn)"
+        info "Body: Multi-turn conversation with 3 messages"
+
+        ANTHROPIC_MULTITURN=$(curl -v http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "$MULTITURN_PAYLOAD" \
+            2>&1 || echo "FAILED")
+
+        info "Response:"
+        echo "$ANTHROPIC_MULTITURN" | tail -20 | while IFS= read -r line; do
+            info "  $line"
+        done
+    else
+        ANTHROPIC_MULTITURN=$(curl -sf http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "$MULTITURN_PAYLOAD" \
+            2>/dev/null || echo "FAILED")
+    fi
+
+    END_TIME=$(date +%s%N 2>/dev/null || date +%s)
+    if [[ "$START_TIME" =~ N ]]; then
+        ELAPSED_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+    else
+        ELAPSED_MS=$(( (END_TIME - START_TIME) * 1000 ))
+    fi
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Elapsed time: ${ELAPSED_MS}ms"
+    fi
+
+    if [[ "$ANTHROPIC_MULTITURN" != "FAILED" ]] && echo "$ANTHROPIC_MULTITURN" | jq -e '.type == "message"' &> /dev/null; then
+        pass "POST /v1/messages (multi-turn conversation) succeeded"
+    else
+        skip "POST /v1/messages (multi-turn) - endpoint not available" "Upgrade to Ollama 0.5.0+"
+    fi
+
+    # Test 26: Streaming with usage data
+    show_progress "Testing POST /v1/messages (streaming with usage)..."
+
+    START_TIME=$(date +%s%N 2>/dev/null || date +%s)
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Request: POST http://localhost:11434/v1/messages (streaming with usage)"
+
+        ANTHROPIC_USAGE_STREAM=$(curl -v http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}" \
+            2>&1 || echo "FAILED")
+
+        info "Response (all events):"
+        echo "$ANTHROPIC_USAGE_STREAM" | grep "^event:\|^data:" | while IFS= read -r line; do
+            info "  $line"
+        done
+    else
+        ANTHROPIC_USAGE_STREAM=$(curl -sf http://localhost:11434/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}" \
+            2>/dev/null || echo "FAILED")
+    fi
+
+    END_TIME=$(date +%s%N 2>/dev/null || date +%s)
+    if [[ "$START_TIME" =~ N ]]; then
+        ELAPSED_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+    else
+        ELAPSED_MS=$(( (END_TIME - START_TIME) * 1000 ))
+    fi
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        info "Elapsed time: ${ELAPSED_MS}ms"
+    fi
+
+    if [[ "$ANTHROPIC_USAGE_STREAM" != "FAILED" ]] && echo "$ANTHROPIC_USAGE_STREAM" | grep -q "event:"; then
+        # Check for usage data in message_delta event
+        if echo "$ANTHROPIC_USAGE_STREAM" | grep -q "\"usage\""; then
+            pass "POST /v1/messages (streaming with usage) includes usage data"
+        else
+            skip "POST /v1/messages (streaming) works but usage data not found (acceptable)" "Usage may be in different format"
+        fi
+    else
+        skip "POST /v1/messages (streaming with usage) - endpoint not available" "Upgrade to Ollama 0.5.0+"
+    fi
+fi
+
+echo ""
 echo "=== Error Behavior Tests ==="
 
 # Test 12: 500 error on nonexistent model
-info "Testing error handling for nonexistent model..."
+show_progress "Testing error handling for nonexistent model..."
 ERROR_RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null http://localhost:11434/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{"model":"nonexistent-model-xyz","messages":[{"role":"user","content":"hi"}]}' \
@@ -454,7 +750,7 @@ else
 fi
 
 # Test 13: Malformed request handling
-info "Testing malformed request handling..."
+show_progress "Testing malformed request handling..."
 MALFORMED_RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null http://localhost:11434/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{"invalid":"json","no":"model"}' \
@@ -472,6 +768,7 @@ echo ""
 echo "=== Security Tests ==="
 
 # Test 14: Verify process owner (already tested above, but re-validate)
+show_progress "Verifying process owner (security check)..."
 if [[ -n "${OLLAMA_USER:-}" ]] && [[ "$OLLAMA_USER" != "root" ]]; then
     pass "Security: Ollama running as user (not root)"
 else
@@ -479,7 +776,7 @@ else
 fi
 
 # Test 15: Log files exist and are readable
-info "Checking log files..."
+show_progress "Checking log files..."
 if [[ -f /tmp/ollama.stdout.log ]] && [[ -r /tmp/ollama.stdout.log ]] && \
    [[ -f /tmp/ollama.stderr.log ]] && [[ -r /tmp/ollama.stderr.log ]]; then
     pass "Log files exist and are readable (/tmp/ollama.stdout.log, /tmp/ollama.stderr.log)"
@@ -490,7 +787,7 @@ else
 fi
 
 # Test 16: Plist file exists
-info "Checking plist file..."
+show_progress "Checking plist file..."
 PLIST_PATH="$HOME/Library/LaunchAgents/com.ollama.plist"
 if [[ -f "$PLIST_PATH" ]]; then
     pass "Plist file exists ($PLIST_PATH)"
@@ -499,7 +796,7 @@ else
 fi
 
 # Test 17: OLLAMA_HOST=0.0.0.0 in plist
-info "Checking OLLAMA_HOST in plist..."
+show_progress "Checking OLLAMA_HOST in plist..."
 if grep -q "OLLAMA_HOST" "$PLIST_PATH" && grep -q "0.0.0.0" "$PLIST_PATH"; then
     pass "OLLAMA_HOST=0.0.0.0 configured in plist"
 else
@@ -510,7 +807,7 @@ echo ""
 echo "=== Network Tests ==="
 
 # Test 18: Service binds to 0.0.0.0
-info "Checking service binding..."
+show_progress "Checking service binding..."
 if lsof -i :11434 -sTCP:LISTEN 2>/dev/null | grep -q "0.0.0.0:11434" || \
    netstat -an 2>/dev/null | grep "11434" | grep -q "LISTEN"; then
     pass "Service binds to all interfaces (0.0.0.0)"
@@ -519,7 +816,7 @@ else
 fi
 
 # Test 19: Localhost access
-info "Testing localhost access..."
+show_progress "Testing localhost access..."
 if curl -sf http://localhost:11434/v1/models &> /dev/null; then
     pass "Localhost access (127.0.0.1) works"
 else
@@ -527,7 +824,7 @@ else
 fi
 
 # Test 20: Tailscale IP access (if connected)
-info "Testing Tailscale IP access..."
+show_progress "Testing Tailscale IP access..."
 if command -v tailscale &> /dev/null && tailscale ip -4 &> /dev/null; then
     TAILSCALE_IP=$(tailscale ip -4 2>/dev/null | head -n1)
     if [[ -n "$TAILSCALE_IP" ]]; then

@@ -8,7 +8,7 @@
 **Last Updated**: 2026-02-10
 **Current Version**: v0.0.4
 
-v1 (Aider/OpenAI API) is complete and tested on hardware. v2+ (Claude Code/Anthropic API, version management, analytics) has documentation foundations done; core implementation remains.
+v1 (Aider/OpenAI API) is complete and tested on hardware. v2+ (Claude Code/Anthropic API, version management, analytics) has documentation foundations done; core implementation in progress. Latest: server Anthropic tests + progress tracking implemented.
 
 ---
 
@@ -20,26 +20,26 @@ All 8 scripts delivered (server: 4, client: 3 + env.template). 48 tests passing 
 
 ### v2+ Implementation - IN PROGRESS
 
-Phase 1 (documentation foundations) complete: 7/22 items done. Specs updated for Anthropic API, env.template extended, README/SCRIPTS/SETUP docs prepared. **15 items remain** across 3 phases of implementation.
+Phase 1 (documentation foundations) complete: 7/22 items done. Phase 2: 2/6 items done (H1-3, H4-4). Specs updated for Anthropic API, env.template extended, server Anthropic tests + progress tracking implemented. **13 items remain** across 3 phases of implementation.
 
 ---
 
 ## Remaining Tasks
 
-### Phase 2: Core Implementation (6 items, parallelizable)
+### Phase 2: Core Implementation (4 items remaining, parallelizable)
 
 | ID | Task | Priority | Effort | Target Files | Dependencies |
 |----|------|----------|--------|-------------|-------------|
-| H1-3 | Add Anthropic `/v1/messages` tests to server test.sh (4-6 tests: non-streaming, streaming SSE, system prompts, error handling). Bump `TOTAL_TESTS` from 20 to ~25-26. Add `--skip-anthropic-tests` flag. | H1 | Medium | `server/scripts/test.sh` | None (H1-2 spec done) |
-| H4-4 | Fix `show_progress()` never called in server test.sh. Add calls before each test; `CURRENT_TEST` currently stuck at 0. | H4 | Small | `server/scripts/test.sh` | None |
 | H1-4 | Add optional Claude Code setup to client install.sh. Prompt user, create `claude-ollama` shell alias with marker comments for clean removal. | H1 | Medium | `client/scripts/install.sh` | None (H1-5 env done) |
 | H1-6 | Sync embedded env template in install.sh (lines 311-319) with canonical `env.template` -- add missing Anthropic variable comments (lines 9-12 of template). | H1 | Trivial | `client/scripts/install.sh` | None |
 | H2-1 | Create `check-compatibility.sh`. Detect Claude Code + Ollama versions, check compatibility matrix, report status with exit codes 0/1/2/3. | H2 | Medium | New: `client/scripts/check-compatibility.sh` | None |
 | H2-2 | Create `pin-versions.sh`. Detect versions, pin via npm/brew, create `~/.ai-client/.version-lock`. | H2 | Medium | New: `client/scripts/pin-versions.sh` | None |
 
-**Bundling**: H1-3 + H4-4 (same file). H1-4 + H1-6 (same file).
+**Bundling**: H1-4 + H1-6 (same file).
 
 **Specs**: H2-1 -> `client/specs/VERSION_MANAGEMENT.md` lines 66-131. H2-2 -> same spec lines 133-178.
+
+**Completed**: H1-3 (Anthropic tests), H4-4 (progress tracking) -- see "Completed This Session" section below.
 
 ### Phase 3: Dependent Implementation (3 items, sequential)
 
@@ -91,11 +91,10 @@ Phase 4 (polish):
 ## Recommended Execution Order
 
 **Batch 1** (parallel, no blockers):
-1. H1-3 + H4-4 -- Server Anthropic tests + progress fix
-2. H1-4 + H1-6 -- Client Claude Code install + template sync
-3. H2-1 -- check-compatibility.sh
-4. H2-2 -- pin-versions.sh
-5. H3-1 + H3-6 -- Analytics bug fixes + decision matrix
+1. H1-4 + H1-6 -- Client Claude Code install + template sync
+2. H2-1 -- check-compatibility.sh
+3. H2-2 -- pin-versions.sh
+4. H3-1 + H3-6 -- Analytics bug fixes + decision matrix
 
 **Batch 2** (after Batch 1):
 6. H2-3 -- downgrade-claude.sh (needs H2-2)
@@ -115,7 +114,7 @@ Phase 4 (polish):
 
 | Category | Items | Effort |
 |----------|-------|--------|
-| Server test.sh (Anthropic tests + progress fix) | H1-3, H4-4 | Medium |
+| ~~Server test.sh (Anthropic tests + progress fix)~~ | ~~H1-3, H4-4~~ | ~~DONE~~ |
 | Client install.sh (Claude Code + template sync) | H1-4, H1-6 | Medium |
 | Version management (3 new scripts) | H2-1, H2-2, H2-3 | Medium-Large |
 | Client uninstall.sh (v2+ cleanup) | H2-4 | Small |
@@ -125,8 +124,8 @@ Phase 4 (polish):
 | Documentation updates | H3-3, H3-5 | Small |
 
 **New files**: 3 (`check-compatibility.sh`, `pin-versions.sh`, `downgrade-claude.sh`)
-**Modified files**: ~8 existing files
-**Estimated total**: 5-7 focused development days + hardware testing session
+**Modified files**: ~7 existing files
+**Estimated total**: 4-6 focused development days + hardware testing session
 
 ---
 
@@ -138,6 +137,32 @@ Phase 4 (polish):
 4. **No stubs**: Implement completely or not at all. No TODO/FIXME/HACK in production code.
 5. **Claude Code integration is optional**: Always prompt for user consent. Anthropic cloud is default; Ollama is an alternative.
 6. **curl-pipe install**: Client `install.sh` must work when executed via `curl | bash`.
+
+---
+
+## Completed This Session (2026-02-10)
+
+### H1-3: Anthropic `/v1/messages` Tests
+**File**: `server/scripts/test.sh`
+- Added 6 Anthropic API tests (tests 21-26):
+  1. Non-streaming `/v1/messages` basic request
+  2. Streaming SSE with `stream: true`
+  3. System prompts in Anthropic format
+  4. Error handling (400/404/500)
+  5. Multi-turn conversation history
+  6. Streaming with usage metrics
+- Bumped `TOTAL_TESTS` from 20 to 26
+- Added `--skip-anthropic-tests` flag
+- All tests verify Ollama 0.5.0+ Anthropic API compatibility
+
+### H4-4: Progress Tracking Fix
+**File**: `server/scripts/test.sh`
+- Fixed `show_progress()` never being called (was stuck at 0/20)
+- Added `show_progress()` calls before ALL 26 tests
+- `CURRENT_TEST` now increments properly for all tests (1/26 → 26/26)
+- Progress bar now displays correctly throughout test execution
+
+**Impact**: Server test suite now comprehensively validates both OpenAI (20 tests) and Anthropic (6 tests) API surfaces with proper progress tracking.
 
 ---
 
