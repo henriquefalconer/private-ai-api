@@ -63,35 +63,100 @@ info "✓ Homebrew found: $(brew --version | head -n1)"
 
 # Step 3: Check/install Tailscale
 info "Checking for Tailscale..."
-if ! command -v tailscale &> /dev/null; then
-    info "Installing Tailscale via Homebrew..."
-    brew install tailscale || fatal "Failed to install Tailscale"
+
+# Try to install GUI app via cask if neither CLI nor GUI app exists
+if ! command -v tailscale &> /dev/null && ! [ -d "/Applications/Tailscale.app" ]; then
+    info "Installing Tailscale GUI via Homebrew..."
+    brew install --cask tailscale || fatal "Failed to install Tailscale"
+    info "✓ Tailscale GUI installed"
+elif [ -d "/Applications/Tailscale.app" ]; then
+    info "✓ Tailscale GUI already installed"
+elif command -v tailscale &> /dev/null; then
+    info "✓ Tailscale CLI already installed"
 fi
-info "✓ Tailscale installed"
 
-# Open Tailscale app for login
-info "Opening Tailscale for login and device approval..."
-open -a Tailscale || warn "Could not open Tailscale app automatically. Please open it manually."
-
-# Wait for Tailscale connection
-info "Waiting for Tailscale connection (up to 60 seconds)..."
-WAIT_COUNT=0
-MAX_WAIT=60
-while [[ $WAIT_COUNT -lt $MAX_WAIT ]]; do
-    if tailscale status &> /dev/null && tailscale ip -4 &> /dev/null; then
-        TAILSCALE_IP=$(tailscale ip -4 2>/dev/null | head -n1)
-        if [[ -n "$TAILSCALE_IP" ]]; then
-            info "✓ Tailscale connected! IP: $TAILSCALE_IP"
-            break
+# Check if already connected
+TAILSCALE_IP=""
+if command -v tailscale &> /dev/null; then
+    if tailscale status &> /dev/null 2>&1; then
+        # Check if we have an IP
+        POTENTIAL_IP=$(tailscale ip -4 2>/dev/null | head -n1)
+        if [[ -n "$POTENTIAL_IP" ]]; then
+            TAILSCALE_IP="$POTENTIAL_IP"
+            info "✓ Tailscale already connected! IP: $TAILSCALE_IP"
         fi
     fi
-    sleep 2
-    WAIT_COUNT=$((WAIT_COUNT + 2))
-done
+fi
 
-if [[ $WAIT_COUNT -ge $MAX_WAIT ]]; then
-    warn "Tailscale did not connect within 60 seconds"
-    echo "Please ensure you complete the Tailscale login process and re-run this script"
+# If not connected, start connection flow
+if [[ -z "$TAILSCALE_IP" ]]; then
+    echo ""
+    echo "================================================"
+    echo "  Tailscale Connection Required"
+    echo "================================================"
+    echo ""
+
+    # Try GUI first
+    if [ -d "/Applications/Tailscale.app" ]; then
+        info "Opening Tailscale GUI..."
+        open -a Tailscale 2>/dev/null && info "✓ Tailscale GUI opened" || warn "Failed to open GUI"
+        echo ""
+        echo "Please complete these steps in the Tailscale GUI:"
+        echo "  1. Click 'Log in' or 'Sign up'"
+        echo "  2. Authenticate in your browser"
+        echo "  3. Approve the device in your Tailscale admin"
+        echo ""
+    elif command -v tailscale &> /dev/null; then
+        # Fall back to CLI
+        info "Starting Tailscale CLI authentication..."
+        echo ""
+        echo "Running: tailscale up"
+        echo "Please follow the URL that appears to authenticate."
+        echo ""
+        tailscale up || warn "Tailscale up returned an error, but you may still be able to authenticate"
+        echo ""
+    else
+        fatal "Neither Tailscale GUI nor CLI is available. Installation may have failed."
+    fi
+
+    # Wait with interactive prompt
+    info "Waiting for Tailscale connection..."
+    echo "Checking status every 3 seconds (press Enter to check immediately, Ctrl+C to abort)"
+    echo ""
+
+    CONNECTED=false
+    CHECK_COUNT=0
+    MAX_CHECKS=100  # 5 minutes maximum (100 * 3 seconds)
+
+    while [[ "$CONNECTED" == "false" ]] && [[ $CHECK_COUNT -lt $MAX_CHECKS ]]; do
+        # Check status
+        if command -v tailscale &> /dev/null && tailscale status &> /dev/null 2>&1; then
+            POTENTIAL_IP=$(tailscale ip -4 2>/dev/null | head -n1)
+            if [[ -n "$POTENTIAL_IP" ]]; then
+                TAILSCALE_IP="$POTENTIAL_IP"
+                CONNECTED=true
+                echo ""
+                info "✓ Tailscale connected! IP: $TAILSCALE_IP"
+                echo ""
+                break
+            fi
+        fi
+
+        # Wait with timeout or Enter
+        if read -t 3 -r 2>/dev/null; then
+            continue  # User pressed Enter, check immediately
+        fi
+        echo -n "."  # Show progress dot
+        CHECK_COUNT=$((CHECK_COUNT + 1))
+    done
+
+    if [[ "$CONNECTED" == "false" ]]; then
+        echo ""
+        warn "Tailscale did not connect within the timeout period"
+        echo "Please ensure you complete the Tailscale login process and re-run this script"
+        echo "You can check status manually with: tailscale status"
+        echo ""
+    fi
 fi
 
 # Step 4: Check/install Ollama
@@ -222,16 +287,24 @@ echo "================================================"
 echo "  Tailscale Configuration"
 echo "================================================"
 echo ""
-info "It is recommended to set a custom machine name in Tailscale admin console"
-echo "  Default recommendation: 'private-ai-server'"
-echo "  Current Tailscale IP: ${TAILSCALE_IP:-unknown}"
-echo ""
-echo "To set the machine name:"
-echo "  1. Visit https://login.tailscale.com/admin/machines"
-echo "  2. Find this device (IP: ${TAILSCALE_IP:-unknown})"
-echo "  3. Click the three dots menu → 'Edit machine...'"
-echo "  4. Set 'Machine name' to 'private-ai-server' (or your preferred name)"
-echo ""
+
+if [[ -n "$TAILSCALE_IP" ]]; then
+    info "It is recommended to set a custom machine name in Tailscale admin console"
+    echo "  Default recommendation: 'private-ai-server'"
+    echo "  Current Tailscale IP: $TAILSCALE_IP"
+    echo ""
+    echo "To set the machine name:"
+    echo "  1. Visit https://login.tailscale.com/admin/machines"
+    echo "  2. Find this device (IP: $TAILSCALE_IP)"
+    echo "  3. Click the three dots menu → 'Edit machine...'"
+    echo "  4. Set 'Machine name' to 'private-ai-server' (or your preferred name)"
+    echo ""
+else
+    warn "Tailscale is not connected - skipping machine name configuration"
+    echo "  After connecting Tailscale, you can set the machine name at:"
+    echo "  https://login.tailscale.com/admin/machines"
+    echo ""
+fi
 
 # Step 13: Print Tailscale ACL instructions
 echo "================================================"
@@ -271,15 +344,32 @@ echo "  Installation Complete!"
 echo "================================================"
 echo ""
 info "✓ Ollama is running and listening on all interfaces (0.0.0.0:11434)"
-info "✓ Tailscale is connected (IP: ${TAILSCALE_IP:-unknown})"
+
+if [[ -n "$TAILSCALE_IP" ]]; then
+    info "✓ Tailscale is connected (IP: $TAILSCALE_IP)"
+else
+    warn "⚠ Tailscale is NOT connected - you must connect before clients can reach this server"
+    echo "  Connect with: tailscale up"
+    echo "  Or open the Tailscale GUI app"
+    echo ""
+fi
+
 info "✓ LaunchAgent will auto-start Ollama on boot"
 echo ""
 echo "Next steps:"
-echo "  1. Set machine name to 'private-ai-server' in Tailscale admin console"
-echo "  2. Configure Tailscale ACLs (see instructions above)"
-echo "  3. Tag this machine with 'tag:private-ai-server'"
-echo "  4. (Optional) Pre-pull models: ollama pull <model-name>"
-echo "  5. Test from a client: curl http://private-ai-server:11434/v1/models"
+
+if [[ -n "$TAILSCALE_IP" ]]; then
+    echo "  1. Set machine name to 'private-ai-server' in Tailscale admin console"
+    echo "  2. Configure Tailscale ACLs (see instructions above)"
+    echo "  3. Tag this machine with 'tag:private-ai-server'"
+    echo "  4. (Optional) Pre-pull models: ollama pull <model-name>"
+    echo "  5. Test from a client: curl http://private-ai-server:11434/v1/models"
+else
+    echo "  1. Connect Tailscale (tailscale up or open GUI app)"
+    echo "  2. Re-run this script to complete Tailscale configuration"
+    echo "  3. Or manually configure: set machine name and ACLs at https://login.tailscale.com/admin"
+fi
+
 echo ""
 echo "To restart Ollama: launchctl kickstart -k $LAUNCHD_DOMAIN/$LAUNCHD_LABEL"
 echo "To view logs: tail -f /tmp/ollama.stderr.log"
