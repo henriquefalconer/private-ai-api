@@ -52,7 +52,7 @@ Items sorted by priority -- implement in this order to achieve full spec complia
 
 ### Priority B: server/scripts/install.sh -- macOS version check MISSING
 - **File**: `server/scripts/install.sh` (exists, 280 lines)
-- **Spec**: `server/specs/REQUIREMENTS.md` line 3: "macOS 14 Sonoma or later"
+- **Spec**: `server/specs/REQUIREMENTS.md` line 5: "macOS 14 Sonoma or later"
 - **Effort**: Trivial (add ~5 lines)
 - **Gap**: Script checks for macOS (Darwin) and Apple Silicon (arm64) but does NOT check macOS version >= 14. Should use `sw_vers -productVersion` and compare major version >= 14, matching what client/scripts/install.sh already does (lines 45-53).
 
@@ -428,8 +428,8 @@ This priority is subdivided into three tasks:
 - **Priority 6c**: Run integration testing on real hardware -- AWAITING HARDWARE + test scripts
 
 **Spec refs**:
-- `server/specs/SCRIPTS.md` lines 34-87: complete server test script specification
-- `client/specs/SCRIPTS.md` lines 20-77: complete client test script specification
+- `server/specs/SCRIPTS.md` lines 43-88: complete server test script specification
+- `client/specs/SCRIPTS.md` lines 20-78: complete client test script specification
 - `client/specs/API_CONTRACT.md` lines 17-26: supported endpoints
 - `client/specs/API_CONTRACT.md` lines 46-51: error behavior
 - `server/specs/FUNCTIONALITIES.md` lines 6-13: API capabilities
@@ -472,7 +472,7 @@ This priority is subdivided into three tasks:
 **Blocks**: Priority 6c
 
 **Spec refs**:
-- `client/specs/SCRIPTS.md` lines 20-77: complete test.sh behavior specification
+- `client/specs/SCRIPTS.md` lines 20-78: complete test.sh behavior specification
 - `client/specs/FILES.md` line 14: file location
 
 **Tasks**:
@@ -608,7 +608,7 @@ Every implemented script was compared line-by-line against its spec requirements
 - **server/scripts/install.sh**: 25 of 26 spec requirements implemented; 1 gap (missing macOS 14+ version check from REQUIREMENTS.md)
 - **client/scripts/install.sh**: All SCRIPTS.md requirements implemented; all REQUIREMENTS.md requirements implemented; all API_CONTRACT.md variables correct; dual-mode (curl-pipe + local clone) working; idempotent
 - **client/scripts/uninstall.sh**: All 4 SCRIPTS.md requirements fully implemented; correctly reverses all install.sh changes
-- **server/scripts/warm-models.sh**: All 8 SCRIPTS.md requirements fully implemented
+- **server/scripts/warm-models.sh**: All 7 SCRIPTS.md requirements fully implemented
 - **server/scripts/uninstall.sh**: NOT IMPLEMENTED (spec exists at server/specs/SCRIPTS.md lines 21-29)
 - **server/scripts/test.sh**: NOT IMPLEMENTED (spec exists at server/specs/SCRIPTS.md lines 43-88)
 - **client/scripts/test.sh**: NOT IMPLEMENTED (spec exists at client/specs/SCRIPTS.md lines 20-78)
