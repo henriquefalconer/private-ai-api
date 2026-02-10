@@ -428,10 +428,9 @@ if [[ "$PIPX_NEEDS_REINSTALL" == "true" ]]; then
     info "✓ pipx reinstalled"
 fi
 
-# Always run ensurepath to ensure PATH is configured
-info "Running pipx ensurepath..."
+# Always run ensurepath to ensure PATH is configured (suppress verbose output)
 export PIPX_DEFAULT_PYTHON="$PYTHON_PATH"
-pipx ensurepath || warn "pipx ensurepath failed (non-fatal)"
+pipx ensurepath > /dev/null 2>&1 || warn "pipx ensurepath failed (non-fatal)"
 
 # Step 11: Install Aider with specific Python version
 info "Checking for Aider..."
@@ -443,10 +442,10 @@ if pipx list 2>/dev/null | grep -q aider-chat; then
     info "✓ Aider already installed, upgrading..."
     pipx upgrade aider-chat > /tmp/aider-upgrade.log 2>&1 || warn "Failed to upgrade Aider (non-fatal)"
 else
-    info "Installing Aider via pipx with Python $PYTHON_VERSION (this may take a few minutes)..."
+    info "Installing Aider (this may take a few minutes)..."
     # Use specific Python version to avoid compatibility issues
     if PIPX_DEFAULT_PYTHON="$PYTHON_PATH" pipx install aider-chat --python "$PYTHON_PATH" > /tmp/aider-install.log 2>&1; then
-        info "✓ Aider installed successfully"
+        info "✓ Aider installed"
     else
         error "Failed to install Aider"
         echo ""
@@ -464,7 +463,6 @@ else
 fi
 
 # Step 12: Copy uninstall.sh for curl-pipe users
-info "Installing uninstall script..."
 UNINSTALL_SCRIPT="$CLIENT_DIR/uninstall.sh"
 
 # Detect if we have local uninstall.sh
@@ -473,73 +471,55 @@ if [[ -f "$LOCAL_UNINSTALL" ]]; then
     # Local clone mode: copy from repo
     cp "$LOCAL_UNINSTALL" "$UNINSTALL_SCRIPT"
     chmod +x "$UNINSTALL_SCRIPT"
-    info "✓ Copied uninstall.sh from local clone"
 else
     # Curl-pipe mode: download from GitHub
-    info "Downloading uninstall.sh from GitHub..."
     UNINSTALL_URL="https://raw.githubusercontent.com/henriquefalconer/remote-ollama/master/client/scripts/uninstall.sh"
-    if curl -fsSL "$UNINSTALL_URL" -o "$UNINSTALL_SCRIPT"; then
+    if curl -fsSL "$UNINSTALL_URL" -o "$UNINSTALL_SCRIPT" 2>/dev/null; then
         chmod +x "$UNINSTALL_SCRIPT"
-        info "✓ Downloaded uninstall.sh from GitHub"
     else
         warn "Failed to download uninstall.sh (non-fatal)"
-        warn "Uninstall script will not be available"
     fi
 fi
 
 section_break "Connectivity Test"
 
 # Step 13: Run connectivity test
-echo ""
-info "Running connectivity test..."
 TEST_URL="http://$SERVER_HOSTNAME:11434/v1/models"
+SERVER_REACHABLE=false
 if curl -sf --max-time 5 "$TEST_URL" &> /dev/null; then
-    info "✓ Successfully connected to server!"
-    info "  Server: $TEST_URL"
+    info "✓ Server connected: $TEST_URL"
+    SERVER_REACHABLE=true
 else
-    warn "Could not connect to server at $TEST_URL"
-    echo ""
-    echo "Possible reasons:"
-    echo "  1. Server is not running yet (install ai-server fai-server. Tailscale ACLs not configured (check admin console)"
-    echo "  3. This device not tagged with 'tag:ai-client'"
-    echo "  4. Server hostname '$SERVER_HOSTNAME' is incorrect"
-    echo ""
-    echo "You can continue to use the client once the server is accessible."
-    echo ""
+    warn "Server not reachable at $TEST_URL"
+    echo "  → Install server first, or check Tailscale ACLs and device tags"
 fi
 
 # Final summary
-echo "================================================"
-echo "  Installation Complete!"
-echo "================================================"
+section_break
+echo -e "${GREEN}✓ Installation Complete!${NC}"
 echo ""
-info "✓ Environment configured: $ENV_FILE"
-info "✓ Shell profile updated: $SHELL_PROFILE"
-info "✓ Aider installed via pipx"
-info "✓ Uninstall script: $UNINSTALL_SCRIPT"
+info "Environment: $ENV_FILE"
+info "Shell profile: $SHELL_PROFILE"
+info "Uninstall: $UNINSTALL_SCRIPT"
 echo ""
-echo "IMPORTANT: Reload your shell configuration:"
-echo "  exec \$SHELL          # Restart shell (recommended)"
-echo "  OR: source $SHELL_PROFILE"
+
+# Show important next steps
+echo -e "${YELLOW}→ Reload your shell:${NC}"
+echo "    exec \$SHELL"
 echo ""
-echo "Then start using Aider:"
-echo "  aider              # Interactive mode"
-echo "  aider --yes        # Auto-accept mode"
+
+if [[ "$SERVER_REACHABLE" == "true" ]]; then
+    echo -e "${GREEN}→ Start using Aider:${NC}"
+    echo "    aider                    # Interactive mode"
+    echo "    aider --yes              # Auto-accept mode"
+else
+    echo -e "${YELLOW}→ Once server is running:${NC}"
+    echo "    ./client/scripts/test.sh # Verify setup"
+    echo "    aider                    # Start using"
+fi
 echo ""
-echo "Environment variables configured:"
-echo "  OLLAMA_API_BASE=http://$SERVER_HOSTNAME:11434/v1"
-echo "  OPENAI_API_BASE=http://$SERVER_HOSTNAME:11434/v1"
-echo "  OPENAI_API_KEY=ollama"
-echo ""
-echo "Optional: Set default model for Aider"
-echo "  Uncomment and configure AIDER_MODEL in: $ENV_FILE"
-echo "  Example: export AIDER_MODEL=ollama/qwen2.5-coder:32b"
-echo ""
-echo "Troubleshooting Resources:"
-echo "  • Server setup: See server/README.md in the repository"
-echo "  • Tailscale issues: https://tailscale.com/kb/1023/troubleshooting"
-echo "  • Aider documentation: https://aider.chat/docs/"
-echo "  • Check logs: /tmp/python3-install.log, /tmp/aider-install.log"
-echo ""
-echo "To uninstall: $UNINSTALL_SCRIPT"
+
+# Optional configuration hint
+echo -e "${BLUE}Tip:${NC} Set a default model by uncommenting AIDER_MODEL in $ENV_FILE"
+echo "     Example: export AIDER_MODEL=ollama/qwen2.5-coder:32b"
 echo ""
