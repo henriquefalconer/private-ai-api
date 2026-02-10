@@ -297,10 +297,10 @@ while true; do
         break
     fi
 
-    # Push changes after each iteration
-    git push origin "$CURRENT_BRANCH" || {
-        echo -e "${GREEN_BOLD}Failed to push. Creating remote branch...${RESET}"
-        git push -u origin "$CURRENT_BRANCH"
+    # Push changes after each iteration (non-fatal if it fails)
+    git push origin "$CURRENT_BRANCH" 2>/dev/null || {
+        echo -e "${GREEN_BOLD}Failed to push. Attempting to create remote branch...${RESET}"
+        git push -u origin "$CURRENT_BRANCH" 2>/dev/null || echo -e "${YELLOW_BOLD}Git push failed, continuing...${RESET}"
     }
 
     ITERATION=$((ITERATION + 1))

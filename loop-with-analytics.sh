@@ -232,33 +232,33 @@ analyze_iteration() {
     echo -e "${CYAN_BOLD}Analyzing iteration ${iter_num}...${RESET}"
 
     # Count tool uses (sanitize output to ensure single numeric value)
-    local tool_read=$(grep -c '"name":"Read"' "$json_log" 2>/dev/null | head -1 || echo "0")
+    local tool_read=$(grep -c '"name":"Read"' "$json_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
     tool_read=${tool_read:-0}
-    local tool_bash=$(grep -c '"name":"Bash"' "$json_log" 2>/dev/null | head -1 || echo "0")
+    local tool_bash=$(grep -c '"name":"Bash"' "$json_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
     tool_bash=${tool_bash:-0}
-    local tool_edit=$(grep -c '"name":"Edit"' "$json_log" 2>/dev/null | head -1 || echo "0")
+    local tool_edit=$(grep -c '"name":"Edit"' "$json_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
     tool_edit=${tool_edit:-0}
-    local tool_write=$(grep -c '"name":"Write"' "$json_log" 2>/dev/null | head -1 || echo "0")
+    local tool_write=$(grep -c '"name":"Write"' "$json_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
     tool_write=${tool_write:-0}
-    local tool_grep=$(grep -c '"name":"Grep"' "$json_log" 2>/dev/null | head -1 || echo "0")
+    local tool_grep=$(grep -c '"name":"Grep"' "$json_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
     tool_grep=${tool_grep:-0}
-    local tool_glob=$(grep -c '"name":"Glob"' "$json_log" 2>/dev/null | head -1 || echo "0")
+    local tool_glob=$(grep -c '"name":"Glob"' "$json_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
     tool_glob=${tool_glob:-0}
-    local tool_task=$(grep -c '"name":"Task"' "$json_log" 2>/dev/null | head -1 || echo "0")
+    local tool_task=$(grep -c '"name":"Task"' "$json_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
     tool_task=${tool_task:-0}
-    local tool_todo=$(grep -c '"name":"TodoWrite"' "$json_log" 2>/dev/null | head -1 || echo "0")
+    local tool_todo=$(grep -c '"name":"TodoWrite"' "$json_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
     tool_todo=${tool_todo:-0}
 
     local total_tools=$((tool_read + tool_bash + tool_edit + tool_write + tool_grep + tool_glob + tool_task + tool_todo))
 
     # Extract token usage (sum all usage blocks, ensure numeric output)
-    local input_tokens=$(grep -o '"input_tokens":[0-9]*' "$json_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' || echo "0")
+    local input_tokens=$(grep -o '"input_tokens":[0-9]*' "$json_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' | tr -cd '0-9' || echo "0")
     input_tokens=${input_tokens:-0}
-    local cache_creation=$(grep -o '"cache_creation_input_tokens":[0-9]*' "$json_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' || echo "0")
+    local cache_creation=$(grep -o '"cache_creation_input_tokens":[0-9]*' "$json_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' | tr -cd '0-9' || echo "0")
     cache_creation=${cache_creation:-0}
-    local cache_read=$(grep -o '"cache_read_input_tokens":[0-9]*' "$json_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' || echo "0")
+    local cache_read=$(grep -o '"cache_read_input_tokens":[0-9]*' "$json_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' | tr -cd '0-9' || echo "0")
     cache_read=${cache_read:-0}
-    local output_tokens=$(grep -o '"output_tokens":[0-9]*' "$json_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' || echo "0")
+    local output_tokens=$(grep -o '"output_tokens":[0-9]*' "$json_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' | tr -cd '0-9' || echo "0")
     output_tokens=${output_tokens:-0}
 
     # Calculate cache efficiency
@@ -449,10 +449,10 @@ while true; do
         break
     fi
 
-    # Push changes after each iteration
-    git push origin "$CURRENT_BRANCH" || {
-        echo -e "${GREEN_BOLD}Failed to push. Creating remote branch...${RESET}"
-        git push -u origin "$CURRENT_BRANCH"
+    # Push changes after each iteration (non-fatal if it fails)
+    git push origin "$CURRENT_BRANCH" 2>/dev/null || {
+        echo -e "${GREEN_BOLD}Failed to push. Attempting to create remote branch...${RESET}"
+        git push -u origin "$CURRENT_BRANCH" 2>/dev/null || echo -e "${YELLOW_BOLD}Git push failed, continuing...${RESET}"
     }
 
     ITERATION=$((ITERATION + 1))
@@ -489,20 +489,20 @@ total_cache_reads=0
 for i in $(seq 1 $CURRENT_ITER); do
     iter_log="${ANALYTICS_DIR}/iteration-${i}.json"
     if [ -f "$iter_log" ]; then
-        subagents=$(grep -c '"name":"Task"' "$iter_log" 2>/dev/null | head -1 || echo "0")
+        subagents=$(grep -c '"name":"Task"' "$iter_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
         subagents=${subagents:-0}
-        reads=$(grep -c '"name":"Read"' "$iter_log" 2>/dev/null | head -1 || echo "0")
+        reads=$(grep -c '"name":"Read"' "$iter_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
         reads=${reads:-0}
 
-        edit_count=$(grep -c '"name":"Edit"' "$iter_log" 2>/dev/null | head -1 || echo "0")
+        edit_count=$(grep -c '"name":"Edit"' "$iter_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
         edit_count=${edit_count:-0}
-        write_count=$(grep -c '"name":"Write"' "$iter_log" 2>/dev/null | head -1 || echo "0")
+        write_count=$(grep -c '"name":"Write"' "$iter_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
         write_count=${write_count:-0}
         edits=$((edit_count + write_count))
 
-        cache_cr=$(grep -o '"cache_creation_input_tokens":[0-9]*' "$iter_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' || echo "0")
+        cache_cr=$(grep -o '"cache_creation_input_tokens":[0-9]*' "$iter_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' | tr -cd '0-9' || echo "0")
         cache_cr=${cache_cr:-0}
-        cache_rd=$(grep -o '"cache_read_input_tokens":[0-9]*' "$iter_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' || echo "0")
+        cache_rd=$(grep -o '"cache_read_input_tokens":[0-9]*' "$iter_log" 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}' | tr -cd '0-9' || echo "0")
         cache_rd=${cache_rd:-0}
 
         total_subagents=$((total_subagents + subagents))
