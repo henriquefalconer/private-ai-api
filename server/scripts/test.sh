@@ -16,6 +16,8 @@ NC='\033[0m' # No Color
 TESTS_PASSED=0
 TESTS_FAILED=0
 TESTS_SKIPPED=0
+TOTAL_TESTS=20
+CURRENT_TEST=0
 
 # Flags
 VERBOSE=false
@@ -40,18 +42,46 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Output helpers
+show_progress() {
+    CURRENT_TEST=$((CURRENT_TEST + 1))
+    echo -e "${BLUE}[Test $CURRENT_TEST/$TOTAL_TESTS]${NC} $1"
+}
+
 pass() {
     echo -e "${GREEN}✓ PASS${NC} $1"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 fail() {
-    echo -e "${RED}✗ FAIL${NC} $1"
+    local message="$1"
+    local expected="${2:-}"
+    local received="${3:-}"
+
+    echo -e "${RED}✗ FAIL${NC} $message"
+
+    if [[ -n "$expected" && -n "$received" ]]; then
+        echo -e "  ${YELLOW}Expected:${NC} $expected"
+        echo -e "  ${YELLOW}Received:${NC} $received"
+    fi
+
+    # Show troubleshooting hint if provided as 4th argument
+    if [[ -n "${4:-}" ]]; then
+        echo -e "  ${BLUE}Hint:${NC} $4"
+    fi
+
     TESTS_FAILED=$((TESTS_FAILED + 1))
 }
 
 skip() {
-    echo -e "${YELLOW}⊘ SKIP${NC} $1"
+    local message="$1"
+    local how_to_enable="${2:-}"
+
+    echo -e "${YELLOW}⊘ SKIP${NC} $message"
+
+    if [[ -n "$how_to_enable" ]]; then
+        echo -e "  ${BLUE}To enable:${NC} $how_to_enable"
+    fi
+
     TESTS_SKIPPED=$((TESTS_SKIPPED + 1))
 }
 
@@ -64,6 +94,7 @@ info() {
 # Banner
 echo "================================================"
 echo "  private-ai-server Test Suite"
+echo "  Running $TOTAL_TESTS tests"
 echo "================================================"
 echo ""
 
