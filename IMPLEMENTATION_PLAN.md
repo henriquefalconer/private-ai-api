@@ -11,9 +11,9 @@ Prioritized task list for achieving full spec implementation of both server and 
 
 - **Specifications**: COMPLETE (5 server + 6 client = 11 spec files)
 - **Documentation**: COMPLETE (README.md + SETUP.md for both server and client, plus root README)
-- **Server implementation**: IN PROGRESS (install.sh COMPLETE, warm-models.sh NOT STARTED)
-- **Client implementation**: IN PROGRESS (env.template COMPLETE, scripts NOT STARTED)
-- **Integration testing**: BLOCKED (requires both server and client implementation)
+- **Server implementation**: COMPLETE (install.sh COMPLETE, warm-models.sh COMPLETE)
+- **Client implementation**: COMPLETE (env.template COMPLETE, scripts COMPLETE)
+- **Integration testing**: READY (all implementation complete)
 
 ## Spec Audit Summary
 
@@ -25,9 +25,9 @@ Every spec file was read and cross-referenced. Findings are grouped below.
 |-----------|------|-------------|--------|
 | Client | `client/config/env.template` | `client/specs/FILES.md` line 16 | COMPLETE |
 | Server | `server/scripts/install.sh` | `server/specs/FILES.md` line 12 | COMPLETE |
-| Client | `client/scripts/install.sh` | `client/specs/FILES.md` line 12 | NOT STARTED |
-| Client | `client/scripts/uninstall.sh` | `client/specs/FILES.md` line 13 | NOT STARTED |
-| Server | `server/scripts/warm-models.sh` | `server/specs/FILES.md` line 13 | NOT STARTED |
+| Client | `client/scripts/install.sh` | `client/specs/FILES.md` line 12 | COMPLETE |
+| Client | `client/scripts/uninstall.sh` | `client/specs/FILES.md` line 13 | COMPLETE |
+| Server | `server/scripts/warm-models.sh` | `server/specs/FILES.md` line 13 | COMPLETE |
 
 ### Cross-spec findings
 
@@ -179,7 +179,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 
 ## Priority 3 -- Client: `client/scripts/install.sh`
 
-**Status**: NOT STARTED
+**Status**: COMPLETE
 **Effort**: Large (multi-step installer)
 **Dependencies**: Priority 1 (env.template)
 **Blocks**: Priority 4 (uninstall.sh), Priority 6 (integration testing)
@@ -198,67 +198,67 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 - `client/SETUP.md` lines 9-13: curl-based remote install option
 
 **Tasks**:
-- [ ] Create `client/scripts/` directory
-- [ ] Add `#!/bin/bash` + `set -euo pipefail` header
-- [ ] Detect macOS 14+ (Sonoma); abort with clear message otherwise
+- [x] Create `client/scripts/` directory
+- [x] Add `#!/bin/bash` + `set -euo pipefail` header
+- [x] Detect macOS 14+ (Sonoma); abort with clear message otherwise
   - Ref: `client/specs/REQUIREMENTS.md` line 5
   - Use `sw_vers -productVersion` and compare major version >= 14
-- [ ] Detect user's shell (zsh or bash) for profile sourcing
+- [x] Detect user's shell (zsh or bash) for profile sourcing
   - Ref: `client/specs/REQUIREMENTS.md` line 6
-- [ ] Check/install Homebrew (prompt user if missing)
+- [x] Check/install Homebrew (prompt user if missing)
   - Ref: `client/specs/REQUIREMENTS.md` line 10
-- [ ] Check/install Python 3.10+ via Homebrew if missing
+- [x] Check/install Python 3.10+ via Homebrew if missing
   - Ref: `client/specs/REQUIREMENTS.md` line 11
-- [ ] Check/install Tailscale GUI app; open for login + device approval
+- [x] Check/install Tailscale GUI app; open for login + device approval
   - Ref: `client/specs/REQUIREMENTS.md` line 12
   - Ref: `client/specs/SCRIPTS.md` line 6
-- [ ] Prompt for server hostname (default: `private-ai-server`)
+- [x] Prompt for server hostname (default: `private-ai-server`)
   - Ref: `client/specs/SCRIPTS.md` line 7
-- [ ] Create `~/.private-ai-client/` directory
+- [x] Create `~/.private-ai-client/` directory
   - Ref: `client/specs/SCRIPTS.md` line 8
-- [ ] Resolve env.template (dual-mode strategy):
+- [x] Resolve env.template (dual-mode strategy):
   - **Local clone mode**: read `$(dirname "$0")/../config/env.template`
   - **curl-pipe mode**: use embedded heredoc fallback (template content hardcoded in script)
   - Detection: if `$0` is `bash` or `/dev/stdin` or the template file does not exist, use embedded mode
   - Ref: `client/SETUP.md` lines 11-13
-- [ ] Generate `~/.private-ai-client/env` by substituting `__HOSTNAME__` with chosen hostname
+- [x] Generate `~/.private-ai-client/env` by substituting `__HOSTNAME__` with chosen hostname
   - Ref: `client/specs/SCRIPTS.md` line 8
-- [ ] Prompt user for consent before modifying shell profile
+- [x] Prompt user for consent before modifying shell profile
   - Ref: `client/specs/SCRIPTS.md` line 9 ("with user consent")
   - Ref: `client/SETUP.md` line 32 ("Update your shell profile")
-- [ ] Append `source ~/.private-ai-client/env` to `~/.zshrc` (or `~/.bashrc` for bash users)
+- [x] Append `source ~/.private-ai-client/env` to `~/.zshrc` (or `~/.bashrc` for bash users)
   - Guard with marker comment (`# >>> private-ai-client >>>` / `# <<< private-ai-client <<<`) for idempotency and clean removal
   - Only append if marker not already present
   - Handle both `~/.zshrc` and `~/.bashrc`
-- [ ] Install pipx if not present: `brew install pipx`
-- [ ] Run `pipx ensurepath` immediately after pipx installation (adds `~/.local/bin` to PATH)
+- [x] Install pipx if not present: `brew install pipx`
+- [x] Run `pipx ensurepath` immediately after pipx installation (adds `~/.local/bin` to PATH)
   - This must happen before `pipx install` so the binary is locatable
   - Ref: `client/SETUP.md` lines 91-93 (troubleshooting)
-- [ ] Install Aider via `pipx install aider-chat`
+- [x] Install Aider via `pipx install aider-chat`
   - Ref: `client/specs/SCRIPTS.md` line 10
   - Ref: `client/specs/ARCHITECTURE.md` line 7
-- [ ] Copy `uninstall.sh` to `~/.private-ai-client/uninstall.sh` for curl-pipe users
+- [x] Copy `uninstall.sh` to `~/.private-ai-client/uninstall.sh` for curl-pipe users
   - In local clone mode: copy from `$(dirname "$0")/uninstall.sh`
   - In curl-pipe mode: download from GitHub or embed inline
   - This ensures uninstall is always available regardless of install method
-- [ ] Run connectivity test: `curl -sf http://<hostname>:11434/v1/models`
+- [x] Run connectivity test: `curl -sf http://<hostname>:11434/v1/models`
   - Ref: `client/specs/SCRIPTS.md` line 11
   - Ref: `client/specs/FUNCTIONALITIES.md` lines 17-19
   - **Warn but do not abort** if server is unreachable (server may not be set up yet)
   - Print specific diagnostic: "Tailscale not connected", "Server not responding", etc.
-- [ ] Print success summary with next steps (`aider` / `aider --yes`)
+- [x] Print success summary with next steps (`aider` / `aider --yes`)
   - Ref: `client/specs/FUNCTIONALITIES.md` lines 12-13
   - Remind user to open a new terminal (or `exec $SHELL`) for env vars to take effect
-- [ ] Make script idempotent (safe to re-run)
-- [ ] Comprehensive error handling with clear messages
-- [ ] No sudo required for main flow
+- [x] Make script idempotent (safe to re-run)
+- [x] Comprehensive error handling with clear messages
+- [x] No sudo required for main flow
   - Ref: `client/specs/REQUIREMENTS.md` lines 14-16
 
 ---
 
 ## Priority 4 -- Client: `client/scripts/uninstall.sh`
 
-**Status**: NOT STARTED
+**Status**: COMPLETE
 **Effort**: Small-medium (reverse of install)
 **Dependencies**: Priority 3 (must exactly reverse what install.sh creates)
 **Blocks**: Priority 6 (integration testing)
@@ -269,27 +269,27 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 - `client/specs/FILES.md` line 13: file location
 
 **Tasks**:
-- [ ] Add `#!/bin/bash` + `set -euo pipefail` header
-- [ ] Remove Aider via `pipx uninstall aider-chat`
+- [x] Add `#!/bin/bash` + `set -euo pipefail` header
+- [x] Remove Aider via `pipx uninstall aider-chat`
   - Ref: `client/specs/SCRIPTS.md` line 15
   - Handle case where Aider is not installed (graceful skip)
-- [ ] Remove the marker-delimited block from `~/.zshrc` (and `~/.bashrc` if present)
+- [x] Remove the marker-delimited block from `~/.zshrc` (and `~/.bashrc` if present)
   - Ref: `client/specs/SCRIPTS.md` line 17
   - Use the same `# >>> private-ai-client >>>` / `# <<< private-ai-client <<<` markers from install.sh
   - Clean both `~/.zshrc` and `~/.bashrc`
-- [ ] Delete `~/.private-ai-client/` directory (includes env file and copied uninstall.sh)
+- [x] Delete `~/.private-ai-client/` directory (includes env file and copied uninstall.sh)
   - Ref: `client/specs/SCRIPTS.md` line 16
   - Handle case where directory does not exist
-- [ ] Leave Tailscale, Homebrew, and pipx untouched
+- [x] Leave Tailscale, Homebrew, and pipx untouched
   - Ref: `client/specs/SCRIPTS.md` line 18
-- [ ] Print clear summary of what was removed and what was left
-- [ ] Handle all edge cases gracefully (files missing, partial install, etc.)
+- [x] Print clear summary of what was removed and what was left
+- [x] Handle all edge cases gracefully (files missing, partial install, etc.)
 
 ---
 
 ## Priority 5 -- Server: `server/scripts/warm-models.sh`
 
-**Status**: NOT STARTED
+**Status**: COMPLETE
 **Effort**: Small-medium
 **Dependencies**: Priority 2 (requires Ollama installed and running)
 **Blocks**: Priority 6 (integration testing)
@@ -301,18 +301,18 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 - `server/specs/FILES.md` line 13: file location
 
 **Tasks**:
-- [ ] Add `#!/bin/bash` + `set -euo pipefail` header
-- [ ] Accept model names as command-line arguments; abort with usage if none provided
+- [x] Add `#!/bin/bash` + `set -euo pipefail` header
+- [x] Accept model names as command-line arguments; abort with usage if none provided
   - e.g. `./warm-models.sh qwen2.5-coder:32b deepseek-r1:70b`
-- [ ] Verify Ollama is running (`curl -sf http://localhost:11434/v1/models`) before proceeding
-- [ ] For each model: `ollama pull <model>` (download if not present)
+- [x] Verify Ollama is running (`curl -sf http://localhost:11434/v1/models`) before proceeding
+- [x] For each model: `ollama pull <model>` (download if not present)
   - Ref: `server/SETUP.md` lines 74-76
-- [ ] For each model: send lightweight `/v1/chat/completions` request to force-load into memory
+- [x] For each model: send lightweight `/v1/chat/completions` request to force-load into memory
   - Minimal prompt ("hi") with `max_tokens: 1`
   - Ref: `server/specs/FUNCTIONALITIES.md` line 17
-- [ ] Report progress per model (pulling, loading, ready, failed)
-- [ ] Continue on individual model failures; print summary at end
-- [ ] Document in script comments how to wire into launchd as a post-boot warmup
+- [x] Report progress per model (pulling, loading, ready, failed)
+- [x] Continue on individual model failures; print summary at end
+- [x] Document in script comments how to wire into launchd as a post-boot warmup
   - Ref: `server/specs/INTERFACES.md` line 17
 
 ---
