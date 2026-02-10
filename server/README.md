@@ -16,7 +16,7 @@ The private-ai-server provides a secure, private LLM inference API that:
 - **Hardware**: Apple Silicon Mac (M-series) with ≥96 GB unified memory recommended
 - **Network**: High upload bandwidth (≥100 Mb/s recommended for worldwide low-latency streaming)
 - **Uptime**: 24/7 operation with UPS recommended
-- **OS**: macOS 14 Sonnet or later
+- **OS**: macOS 14 Sonoma or later
 
 ## Architecture
 

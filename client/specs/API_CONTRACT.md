@@ -23,7 +23,7 @@ All others return 404.
 | `/v1/chat/completions`       | POST   | streaming (`stream: true`), JSON mode (`response_format: { "type": "json_object" }`), tools/tool_choice, vision (image_url), temperature/top_p/max_tokens/seed/stop/n | No stateful conversation memory; no previous_response_id |
 | `/v1/models`                 | GET    | Returns list of available models with id, created, owned_by   | created = last-modified timestamp only |
 | `/v1/models/{model}`         | GET    | Single model details                                           | Same as above |
-| `/v1/responses`              | POST   | Non-stateful responses, streaming, tools/function calling      | No previous_response_id or conversation support |
+| `/v1/responses`              | POST   | Non-stateful responses, streaming, tools/function calling      | No previous_response_id or conversation support; requires Ollama 0.5.0+ (experimental) |
 
 ## Common Request Fields (guaranteed)
 

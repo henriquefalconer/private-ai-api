@@ -48,12 +48,12 @@ See [client/README.md](client/README.md) for client installation and usage.
 
 ### Server
 - Apple Silicon Mac (M-series) with ≥96 GB unified memory recommended
-- macOS 14 Sonnet or later
+- macOS 14 Sonoma or later
 - High upload bandwidth (≥100 Mb/s recommended)
 - 24/7 operation capability
 
 ### Client
-- macOS 14 Sonnet or later
+- macOS 14 Sonoma or later
 - Homebrew
 - Python 3.10+
 - Tailscale account

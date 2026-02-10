@@ -58,14 +58,12 @@ cat > ~/Library/LaunchAgents/com.ollama.plist <<'EOF'
 </plist>
 EOF
 
-launchctl load -w ~/Library/LaunchAgents/com.ollama.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ollama.plist
 ```
 
-### 4. Restart Ollama service
+### 4. Restart Ollama service (if needed)
 
 ```bash
-brew services restart ollama
-# or
 launchctl kickstart -k gui/$(id -u)/com.ollama
 ```
 

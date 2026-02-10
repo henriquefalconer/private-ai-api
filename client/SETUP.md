@@ -9,7 +9,7 @@ Choose one of the following methods:
 Run the installer directly via curl:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/henriquefalconer/private-ai-api/main/client/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/henriquefalconer/private-ai-api/master/client/scripts/install.sh | bash
 ```
 
 ### Option 2: Clone and Install
@@ -67,8 +67,14 @@ aider --yes               # YOLO mode
 
 ## Uninstall
 
+If you installed via local clone:
 ```bash
 ./scripts/uninstall.sh
+```
+
+If you installed via curl-pipe:
+```bash
+~/.private-ai-client/uninstall.sh
 ```
 
 ## Troubleshooting

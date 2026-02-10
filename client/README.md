@@ -21,7 +21,7 @@ After installation:
 
 ## Requirements
 
-- macOS 14 Sonnet or later
+- macOS 14 Sonoma or later
 - Homebrew
 - Python 3.10+
 - Tailscale account
