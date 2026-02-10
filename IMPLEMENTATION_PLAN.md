@@ -5,7 +5,7 @@
 
 ## Implementation Status (v0.0.1)
 
-Comprehensive audit completed 2026-02-10. Updated 2026-02-10 to reflect completion of all priorities A-D: server uninstall.sh, macOS version check, server test.sh, and client test.sh. All 8 spec-required scripts now complete. Tag 0.0.1 created.
+Comprehensive audit completed 2026-02-10. Updated 2026-02-10 to reflect completion of all priorities A-D: server uninstall.sh, macOS version check, server test.sh, and client test.sh. All 8 spec-required scripts now complete. Tag 0.0.1 created. Re-audited 2026-02-10: all 194 server spec requirements and all client spec requirements verified against implementation; 0 code gaps found; 1 new documentation gap added (warm-models.sh missing from user-facing docs).
 
 - ✅ 8 of 8 spec-required scripts implemented: env.template, server install.sh, server uninstall.sh, server test.sh, client install.sh, client uninstall.sh, client test.sh, warm-models.sh
 - ✅ Spec documentation complete: 7 server + 6 client = 13 spec files, all internally consistent
@@ -16,7 +16,7 @@ Comprehensive audit completed 2026-02-10. Updated 2026-02-10 to reflect completi
 - ✅ Tag 0.0.1 created marking completion of all 8 spec-required scripts
 - ✅ **All scripts implemented**: All 8 spec-required scripts complete
 - ✅ **0 spec compliance gaps** (macOS version check completed in server install.sh)
-- ⏳ **3 documentation polish tasks** blocked until hardware testing complete
+- ⏳ **4 documentation polish tasks** blocked until hardware testing complete
 
 # Implementation Plan
 
@@ -84,11 +84,12 @@ Items sorted by priority -- implement in this order to achieve full spec complia
   - ✅ Output: pass/fail per test, summary count, exit code 0/non-zero, `--verbose`/`-v`, colorized
   - ✅ Test modes: `--skip-server`, `--skip-aider`, `--quick`
 
-### Priority E: Documentation polish (3 remaining tasks)
+### Priority E: Documentation polish (4 remaining tasks)
 - **Blocked until**: Priorities C and D complete, plus hardware testing
 - [ ] Update `server/README.md` and `client/README.md` with actual tested commands and sample outputs
 - [ ] Expand troubleshooting sections in both SETUP.md files based on issues found during testing
 - [ ] Add quick-reference card for common operations (start/stop server, switch models, check status)
+- [ ] Add `warm-models.sh` documentation to `server/README.md` and `server/SETUP.md` (script exists in `server/scripts/warm-models.sh` and is spec'd in `server/specs/SCRIPTS.md` lines 25-33 and `server/specs/FILES.md` line 16, but neither user-facing doc mentions it)
 
 ### Non-Critical Spec Observations (informational)
 
@@ -99,6 +100,10 @@ These are minor spec-vs-implementation discrepancies that are defensible design 
 2. **Server install.sh Tailscale machine name**: `server/specs/SCRIPTS.md` line 16 says "Prompts user to set Tailscale machine name" but the implementation only displays instructions (no interactive `read` prompt). Acceptable because machine name is set in the Tailscale admin console, not via CLI.
 
 3. **Client connectivity diagnostics**: `client/specs/FUNCTIONALITIES.md` lines 17-19 says "Provide clear error messages if Tailscale is not joined or tag is missing." The implementation provides a generic bullet list of possible reasons rather than diagnosing the specific issue. A future enhancement could run `tailscale status` to differentiate scenarios.
+
+4. **`server/specs/SCRIPTS.md` line 5 generality**: Says "Validates macOS + Apple Silicon hardware requirements" without specifying "macOS 14 Sonoma". The implementation correctly validates macOS 14+ (matching `server/specs/REQUIREMENTS.md`), but the SCRIPTS.md spec is less specific. Not a code bug -- REQUIREMENTS.md is the authoritative source for version requirements.
+
+5. **`warm-models.sh` absent from user-facing docs**: `server/README.md` and `server/SETUP.md` do not mention the `warm-models.sh` script, despite it being fully implemented and spec'd in `server/specs/SCRIPTS.md` lines 25-33 and `server/specs/FILES.md` line 16. Users would not discover this useful optional script from the documentation. Tracked in Priority E/7.
 
 ## Spec Audit Summary
 
@@ -549,7 +554,7 @@ This priority is subdivided into three tasks:
 
 ## Priority 7 -- Documentation Polish
 
-**Status**: PARTIALLY COMPLETE (7 of 10 tasks done)
+**Status**: PARTIALLY COMPLETE (7 of 11 tasks done)
 **Dependencies**: All implementation and testing priorities (including Priorities A-D from Remaining Work)
 
 **Completed**:
@@ -565,6 +570,7 @@ This priority is subdivided into three tasks:
 - [ ] Update `server/README.md` and `client/README.md` with actual tested commands and sample outputs
 - [ ] Expand troubleshooting sections in both SETUP.md files based on issues found during testing
 - [ ] Add quick-reference card for common operations (start/stop server, switch models, check status)
+- [ ] Add `warm-models.sh` documentation to `server/README.md` and `server/SETUP.md` (script exists but user-facing docs don't reference it)
 
 ---
 
@@ -588,7 +594,7 @@ These constraints apply to ALL implementation work and are non-negotiable:
 
 8. **curl-pipe install support** (`client/SETUP.md` lines 11-13): Client install.sh must work when piped from curl. Solution: embed env.template as heredoc fallback; copy uninstall.sh to `~/.private-ai-client/`.
 
-## Spec Audit Findings (2026-02-10, updated 2026-02-10)
+## Spec Audit Findings (2026-02-10, re-audited 2026-02-10)
 
 ### Spec consistency audit
 A comprehensive audit of all 13 specification files was performed to validate internal consistency, cross-file consistency, and completeness:
