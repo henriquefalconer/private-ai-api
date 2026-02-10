@@ -1,4 +1,4 @@
-# ollama-server Security Model
+# ai-server Security Model
 
 ## Attack Surface Reduction
 

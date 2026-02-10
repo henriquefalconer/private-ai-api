@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# ollama-client uninstall script
+# ai-client uninstall script
 # Removes only client-side changes made by install.sh
 # Leaves Tailscale, Homebrew, and pipx untouched
 # Source: client/specs/SCRIPTS.md lines 14-18
@@ -27,7 +27,7 @@ error() {
 
 # Banner
 echo "================================================"
-echo "  ollama-client Uninstall Script"
+echo "  ai-client Uninstall Script"
 echo "  Removes client-side changes and configuration"
 echo "================================================"
 echo ""
@@ -57,8 +57,8 @@ fi
 # Step 2: Remove shell profile sourcing lines
 info "Cleaning shell profile(s)..."
 
-MARKER_START="# >>> ollama-client >>>"
-MARKER_END="# <<< ollama-client <<<"
+MARKER_START="# >>> ai-client >>>"
+MARKER_END="# <<< ai-client <<<"
 REMOVED_COUNT=0
 
 # Clean both zsh and bash profiles (user may have switched shells)
@@ -81,9 +81,9 @@ else
     info "No shell profile modifications found, skipping"
 fi
 
-# Step 3: Delete ~/.ollama-client directory
+# Step 3: Delete ~/.ai-client directory
 info "Removing configuration directory..."
-CLIENT_DIR="$HOME/.ollama-client"
+CLIENT_DIR="$HOME/.ai-client"
 if [[ -d "$CLIENT_DIR" ]]; then
     rm -rf "$CLIENT_DIR"
     info "✓ Removed: $CLIENT_DIR"

@@ -1,4 +1,4 @@
-# ollama-server Architecture
+# ai-server Architecture
 
 ## Core Principles
 

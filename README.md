@@ -18,13 +18,13 @@ This monorepo contains two main components:
 
 The remote-ollama project provides a complete solution for running Ollama on your own hardware with secure remote access via Tailscale, zero public internet exposure, and zero third-party cloud dependencies.
 
-### Server (ollama-server)
+### Server (ai-server)
 - Runs Ollama on a dedicated Apple Silicon Mac with high unified memory
 - Exposes OpenAI-compatible `/v1` API endpoints via Ollama
 - Accessible only via secure overlay network (Tailscale)
 - 24/7 operation for on-demand inference
 
-### Client (ollama-client)
+### Client (ai-client)
 - macOS environment setup and configuration
 - Connects to the remote Ollama server via Tailscale
 - Configures tools like Aider to use your Ollama server automatically

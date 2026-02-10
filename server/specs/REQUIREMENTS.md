@@ -1,4 +1,4 @@
-# ollama-server Requirements
+# ai-server Requirements
 
 ## macOS
 
@@ -28,5 +28,5 @@ Ollama runs as a user-level LaunchAgent (not root) for security. Sudo may be req
 ## Network Requirements
 
 - Tailscale account with admin access to configure ACLs
-- Ability to tag the server machine in Tailscale (e.g., `tag:ollama-server`)
+- Ability to tag the server machine in Tailscale (e.g., `tag:ai-server`)
 - No public internet exposure required (Tailscale provides secure overlay network)

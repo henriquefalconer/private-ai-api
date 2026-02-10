@@ -1,10 +1,10 @@
-# ollama-client
+# ai-client
 
 macOS client setup for connecting to your remote Ollama server.
 
 ## Overview
 
-The ollama-client is a one-time installer that configures your macOS environment to use your remote Ollama server's OpenAI-compatible API.
+The ai-client is a one-time installer that configures your macOS environment to use your remote Ollama server's OpenAI-compatible API.
 
 After installation:
 - Aider (and other OpenAI-compatible tools) connect to your Ollama server automatically
@@ -27,16 +27,16 @@ After installation:
 | | `aider --yes` | Launch Aider in YOLO mode (auto-accept changes) |
 | **Check config** | `echo $OPENAI_API_BASE` | Display configured Ollama API base URL |
 | | `echo $OPENAI_API_KEY` | Display configured API key |
-| | `cat ~/.ollama-client/env` | View all environment variables |
+| | `cat ~/.ai-client/env` | View all environment variables |
 | **Test connectivity** | `curl $OPENAI_API_BASE/models` | Test connection to Ollama server |
 | | `tailscale status` | Check Tailscale connection status |
 | **Run tests** | `./scripts/test.sh` | Run comprehensive test suite |
 | | `./scripts/test.sh --skip-server` | Run tests without server connectivity checks |
 | | `./scripts/test.sh --quick` | Run quick tests (skip model inference) |
-| **Reload environment** | `source ~/.ollama-client/env` | Reload environment variables in current shell |
+| **Reload environment** | `source ~/.ai-client/env` | Reload environment variables in current shell |
 | | `exec $SHELL` | Restart shell to apply environment changes |
 | **Uninstall** | `./scripts/uninstall.sh` | Remove client configuration and Aider |
-| | `~/.ollama-client/uninstall.sh` | Uninstall if installed via curl-pipe |
+| | `~/.ai-client/uninstall.sh` | Uninstall if installed via curl-pipe |
 
 ## Requirements
 
@@ -44,7 +44,7 @@ After installation:
 - Homebrew
 - Python 3.10+
 - Tailscale account
-- Access to a ollama-server (must be invited to the same Tailscale network)
+- Access to a ai-server (must be invited to the same Tailscale network)
 
 ## Installation
 
@@ -84,7 +84,7 @@ Aider automatically reads the environment variables and connects to your remote 
 Any tool that supports custom OpenAI base URLs will work automatically with your Ollama server:
 ```bash
 # Environment variables are already set
-echo $OPENAI_API_BASE    # http://ollama-server:11434/v1
+echo $OPENAI_API_BASE    # http://ai-server:11434/v1
 echo $OPENAI_API_KEY     # ollama
 ```
 

@@ -5,8 +5,8 @@ This document clarifies the roles and responsibilities of different agents worki
 ## Monorepo Structure
 
 This is a single monorepo containing two distinct components:
-- `server/` – The ollama-server component
-- `client/` – The ollama-client component
+- `server/` – The ai-server component
+- `client/` – The ai-client component
 
 ## Important: Single Implementation Plan
 
@@ -16,14 +16,14 @@ Do not create separate implementation plans in the server or client directories.
 
 ## Agent Coordination
 
-### When working on server (ollama-server)
+### When working on server (ai-server)
 - Focus on specifications in `server/specs/`
 - Implement server-side scripts in `server/scripts/`
 - Maintain the API contract as documented in `client/specs/API_CONTRACT.md`
 - Update root `IMPLEMENTATION_PLAN.md` for server progress
 - Do not implement any client-specific functionality
 
-### When working on client (ollama-client)
+### When working on client (ai-client)
 - Focus on specifications in `client/specs/`
 - Implement client-side scripts in `client/scripts/`
 - Strictly adhere to the API contract in `client/specs/API_CONTRACT.md`
@@ -39,9 +39,9 @@ Do not create separate implementation plans in the server or client directories.
 ## References to Components
 
 When writing specifications or documentation:
-- Refer to components as "ollama-server" and "ollama-client" conceptually
+- Refer to components as "ai-server" and "ai-client" conceptually
 - Actual folder paths use `server/` and `client/`
-- Do not use terms like "ollama-server project" or "ollama-client repository" within the specs
+- Do not use terms like "ai-server project" or "ai-client repository" within the specs
 - Simply say "server" or "client" when referring to the folders in this monorepo
 
 ## Workflow Guidelines

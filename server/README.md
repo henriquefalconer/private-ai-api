@@ -1,10 +1,10 @@
-# ollama-server
+# ai-server
 
 Ollama server configuration for secure remote access from Apple Silicon Macs with high unified memory.
 
 ## Overview
 
-The ollama-server configures Ollama to provide secure, remote LLM inference that:
+The ai-server configures Ollama to provide secure, remote LLM inference that:
 - Exposes Ollama's native OpenAI-compatible `/v1` endpoints
 - Runs exclusively on a dedicated, always-on Mac
 - Has zero public internet exposure

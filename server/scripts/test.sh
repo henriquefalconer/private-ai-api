@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# ollama-server test script
+# ai-server test script
 # Comprehensive validation of all server functionality
 # Source: server/specs/SCRIPTS.md lines 43-88
 
@@ -93,7 +93,7 @@ info() {
 
 # Banner
 echo "================================================"
-echo "  ollama-server Test Suite"
+echo "  ai-server Test Suite"
 echo "  Running $TOTAL_TESTS tests"
 echo "================================================"
 echo ""

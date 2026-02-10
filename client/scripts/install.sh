@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# ollama-client install script
-# Configures environment to connect to ollama-server via Tailscale
+# ai-client install script
+# Configures environment to connect to ai-server via Tailscale
 # Works both from local clone and via curl-pipe installation
 # Source: client/specs/* and client/SETUP.md
 
@@ -50,7 +50,7 @@ section_break() {
 
 # Banner
 echo "================================================"
-echo "  ollama-client Installation Script"
+echo "  ai-client Installation Script"
 echo "================================================"
 echo ""
 
@@ -251,16 +251,16 @@ section_break "Environment Configuration"
 
 # Step 6: Prompt for server hostname
 echo ""
-prompt "Enter the server hostname (default: ollama-server):"
+prompt "Enter the server hostname (default: ai-server):"
 read -r SERVER_HOSTNAME
 if [[ -z "$SERVER_HOSTNAME" ]]; then
-    SERVER_HOSTNAME="ollama-server"
+    SERVER_HOSTNAME="ai-server"
 fi
 info "Using server hostname: $SERVER_HOSTNAME"
 
-# Step 7: Create ~/.ollama-client directory
+# Step 7: Create ~/.ai-client directory
 info "Creating configuration directory..."
-CLIENT_DIR="$HOME/.ollama-client"
+CLIENT_DIR="$HOME/.ai-client"
 mkdir -p "$CLIENT_DIR"
 info "✓ Created: $CLIENT_DIR"
 
@@ -277,7 +277,7 @@ if [[ "$0" == "bash" || "$0" == "/dev/stdin" || ! -f "$LOCAL_TEMPLATE" ]]; then
     # Curl-pipe mode: use embedded template
     info "Using embedded env.template (curl-pipe mode)"
     ENV_TEMPLATE_CONTENT=$(cat <<'TEMPLATE_EOF'
-# ollama-client environment configuration
+# ai-client environment configuration
 # Source: client/specs/API_CONTRACT.md
 # Generated from env.template by install.sh -- do not edit manually
 export OLLAMA_API_BASE=http://__HOSTNAME__:11434/v1
@@ -306,8 +306,8 @@ if [[ "$CONSENT" =~ ^[Yy]$ ]]; then
     info "Updating shell profile..."
 
     # Marker pattern for idempotency and clean removal
-    MARKER_START="# >>> ollama-client >>>"
-    MARKER_END="# <<< ollama-client <<<"
+    MARKER_START="# >>> ai-client >>>"
+    MARKER_END="# <<< ai-client <<<"
 
     # Check if markers already exist
     if grep -q "$MARKER_START" "$SHELL_PROFILE" 2>/dev/null; then
@@ -320,7 +320,7 @@ if [[ "$CONSENT" =~ ^[Yy]$ ]]; then
         cat >> "$SHELL_PROFILE" <<PROFILE_EOF
 
 $MARKER_START
-# ollama-client environment configuration
+# ai-client environment configuration
 if [ -f "$ENV_FILE" ]; then
     source "$ENV_FILE"
 fi
@@ -396,7 +396,7 @@ else
     warn "Could not connect to server at $TEST_URL"
     echo ""
     echo "Possible reasons:"
-    echo "  1. Server is not running yet (install ollama-server first)"
+    echo "  1. Server is not running yet (install ai-server first)"
     echo "  2. Tailscale ACLs not configured (check admin console)"
     echo "  3. This device not tagged with 'tag:ai-client'"
     echo "  4. Server hostname '$SERVER_HOSTNAME' is incorrect"

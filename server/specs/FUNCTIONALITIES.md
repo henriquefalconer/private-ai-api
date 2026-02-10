@@ -1,4 +1,4 @@
-# ollama-server Functionalities (v1)
+# ai-server Functionalities (v1)
 
 ## Core Functionality
 

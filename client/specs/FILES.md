@@ -1,4 +1,4 @@
-# ollama-client Repository Layout
+# ai-client Repository Layout
 
 ```
 client/

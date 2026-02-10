@@ -1,4 +1,4 @@
-# ollama-client – Setup Instructions (macOS)
+# ai-client – Setup Instructions (macOS)
 
 ## Installation
 
@@ -27,8 +27,8 @@ cd remote-ollama/client
 The installer will:
 - Check/install Homebrew, Python, Tailscale
 - Open Tailscale for login and device approval
-- Prompt for server hostname (default: `ollama-server`)
-- Create `~/.ollama-client/env` with required environment variables
+- Prompt for server hostname (default: `ai-server`)
+- Create `~/.ai-client/env` with required environment variables
 - Update your shell profile (~/.zshrc) to source the environment
 - Install Aider via pipx
 - Run a connectivity test
@@ -47,8 +47,8 @@ Or simply open a new terminal window.
 
 ```bash
 # Check environment variables
-echo $OLLAMA_API_BASE          # http://ollama-server:11434/v1
-echo $OPENAI_API_BASE          # http://ollama-server:11434/v1
+echo $OLLAMA_API_BASE          # http://ai-server:11434/v1
+echo $OPENAI_API_BASE          # http://ai-server:11434/v1
 echo $OPENAI_API_KEY           # ollama
 
 # Check Aider
@@ -71,7 +71,7 @@ aider --yes               # YOLO mode
 ### Check Configuration
 ```bash
 # Verify environment variables are set
-echo $OPENAI_API_BASE    # Should show: http://ollama-server:11434/v1
+echo $OPENAI_API_BASE    # Should show: http://ai-server:11434/v1
 echo $OPENAI_API_KEY     # Should show: ollama
 
 # Test connectivity (requires server access)
@@ -91,7 +91,7 @@ If you installed via local clone:
 
 If you installed via curl-pipe:
 ```bash
-~/.ollama-client/uninstall.sh
+~/.ai-client/uninstall.sh
 ```
 
 ## Troubleshooting
@@ -106,8 +106,8 @@ If you installed via curl-pipe:
 ### Environment variables not set
 
 - Ensure you opened a new terminal after installation
-- Check that `~/.ollama-client/env` exists
-- Verify `~/.zshrc` has the sourcing line: `source ~/.ollama-client/env`
+- Check that `~/.ai-client/env` exists
+- Verify `~/.zshrc` has the sourcing line: `source ~/.ai-client/env`
 
 ### Aider not found
 

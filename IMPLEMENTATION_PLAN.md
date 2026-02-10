@@ -79,12 +79,12 @@ Items sorted by priority -- implement in this order to achieve full spec complia
 - **Spec**: `client/specs/SCRIPTS.md` lines 20-78
 - **Effort**: Medium
 - **Status**: All testable spec requirements met with 27 distinct tests:
-  - ✅ Environment tests: `~/.ollama-client/env` exists, all 4 vars set (`OLLAMA_API_BASE`, `OPENAI_API_BASE`, `OPENAI_API_KEY`, `AIDER_MODEL`), shell profile sources env file (marker comments), vars exported
+  - ✅ Environment tests: `~/.ai-client/env` exists, all 4 vars set (`OLLAMA_API_BASE`, `OPENAI_API_BASE`, `OPENAI_API_KEY`, `AIDER_MODEL`), shell profile sources env file (marker comments), vars exported
   - ✅ Dependency tests: Tailscale installed/running/connected, Homebrew installed, Python 3.10+, pipx installed, Aider installed via pipx
   - ✅ Connectivity tests: Tailscale connectivity to server hostname, `GET /v1/models`, `GET /v1/models/{model}`, `POST /v1/chat/completions` non-streaming, `POST /v1/chat/completions` streaming SSE, error handling when server unreachable
   - ✅ API contract validation: base URL format, HTTP status codes, response schema (OpenAI format), JSON mode, streaming with `stream_options.include_usage`
   - ✅ Aider integration: `which aider`, binary in PATH, reads environment vars
-  - ✅ Script behavior: install.sh idempotency check, uninstall.sh availability (local clone or `~/.ollama-client/uninstall.sh`), graceful degradation
+  - ✅ Script behavior: install.sh idempotency check, uninstall.sh availability (local clone or `~/.ai-client/uninstall.sh`), graceful degradation
   - ✅ Output: pass/fail per test, summary count, exit code 0/non-zero, `--verbose`/`-v`, colorized
   - ✅ Test modes: `--skip-server`, `--skip-aider`, `--quick`
 
@@ -143,7 +143,7 @@ Deep audit (2026-02-10, v4) comparing every spec requirement line-by-line agains
 
 - ✅ **F1.11 — Final summary omits AIDER_MODEL guidance** (LOW) — FIXED
   - Spec: `client/specs/API_CONTRACT.md` lines 39-43 — 4 env vars defined including optional `AIDER_MODEL`
-  - Fix applied: Added note about uncommenting AIDER_MODEL in `~/.ollama-client/env` for default model selection
+  - Fix applied: Added note about uncommenting AIDER_MODEL in `~/.ai-client/env` for default model selection
 
 #### F2. client/scripts/test.sh -- ✅ ALL 15 gaps FIXED
 
@@ -273,14 +273,14 @@ Deep audit (2026-02-10, v4) comparing every spec requirement line-by-line agains
 
 - ✅ **F5.3 — Banner lacks explicit purpose statement** (LOW) — FIXED (already compliant)
   - Spec: `server/specs/SCRIPTS.md` line 87 — "Clear banner - Display script name and purpose at start"
-  - Implementation: `server/scripts/uninstall.sh` lines 27-30 show "ollama-server Uninstall Script"
+  - Implementation: `server/scripts/uninstall.sh` lines 27-30 show "ai-server Uninstall Script"
   - Status: Already compliant; comment at line 5 serves as purpose, and behavior is clear from script output
 
 #### F6. client/scripts/uninstall.sh -- ✅ ALL 6 gaps FIXED
 
 - ✅ **F6.1 — Banner lacks explicit purpose statement** (LOW) — FIXED
   - Spec: `client/specs/SCRIPTS.md` line 51 — "Display script name and purpose at start"
-  - Fix applied: Added purpose line to banner ("Removes ollama-client installation")
+  - Fix applied: Added purpose line to banner ("Removes ai-client installation")
 
 - ✅ **F6.2 — Static summary always lists Aider as removed** (HIGH) — FIXED
   - Spec: `client/specs/SCRIPTS.md` line 54 — Show what was "successfully removed"
@@ -318,9 +318,9 @@ These are patterns where the specs require "consistent standards" but scripts di
   - Spec: `server/specs/REQUIREMENTS.md` line 7 — "zsh (default) or bash" listed as system requirement
   - Fix applied: Added shell validation matching client install.sh pattern
 
-- ✅ **F7.4 — warm-models.sh banner missing "ollama-server" prefix** (LOW) — FIXED
+- ✅ **F7.4 — warm-models.sh banner missing "ai-server" prefix** (LOW) — FIXED
   - Spec: All scripts should use component-specific prefix in banners
-  - Fix applied: Rename to "ollama-server Model Warming Script" for consistency
+  - Fix applied: Rename to "ai-server Model Warming Script" for consistency
 
 ---
 
@@ -369,7 +369,7 @@ Every spec file was read and cross-referenced. Findings are grouped below.
 
 6. **Server CORS** (`server/specs/SECURITY.md` lines 26-29): Default Ollama CORS restrictions apply. The install script should NOT set `OLLAMA_ORIGINS` in v1 but should include a comment in the plist section documenting it as an optional future enhancement.
 
-7. **Tailscale ACL snippet** (`server/SETUP.md` lines 86-96, `server/specs/SECURITY.md` lines 11-12): The server install script should print the full ACL JSON snippet for the user to apply in the Tailscale admin console, including tag-based rules (`tag:ai-client` -> `tag:ollama-server:11434`) and machine name guidance.
+7. **Tailscale ACL snippet** (`server/SETUP.md` lines 86-96, `server/specs/SECURITY.md` lines 11-12): The server install script should print the full ACL JSON snippet for the user to apply in the Tailscale admin console, including tag-based rules (`tag:ai-client` -> `tag:ai-server:11434`) and machine name guidance.
 
 8. **Client connectivity test** (`client/specs/FUNCTIONALITIES.md` lines 17-19): The install script must test connectivity and provide clear error messages if Tailscale is not connected or the server is unreachable. Per `FUNCTIONALITIES.md` line 18 this test is described as "optional" -- the script must **warn but not abort** if the server is unreachable.
 
@@ -379,13 +379,13 @@ Every spec file was read and cross-referenced. Findings are grouped below.
 
 11. **pipx ensurepath timing**: After `brew install pipx`, `pipx ensurepath` must be called to add `~/.local/bin` to PATH. This must happen before `pipx install aider-chat` so the aider binary is findable. Additionally, the shell profile sourcing line must come before the pipx PATH additions, or the user must open a new terminal.
 
-12. **curl-pipe uninstall documented**: `client/SETUP.md` lines 68-72 now documents both uninstall paths (local clone: `./scripts/uninstall.sh`, curl-pipe: `~/.ollama-client/uninstall.sh`). Install.sh must copy uninstall.sh to `~/.ollama-client/uninstall.sh` during installation.
+12. **curl-pipe uninstall documented**: `client/SETUP.md` lines 68-72 now documents both uninstall paths (local clone: `./scripts/uninstall.sh`, curl-pipe: `~/.ai-client/uninstall.sh`). Install.sh must copy uninstall.sh to `~/.ai-client/uninstall.sh` during installation.
 
 13. **`/v1/responses` endpoint version requirement documented**: `client/specs/API_CONTRACT.md` line 26 now notes "requires Ollama 0.5.0+ (experimental)". The integration testing phase must verify this endpoint works with documented version.
 
 14. **All 4 API contract endpoints are covered by Ollama**: `/v1/chat/completions` (core), `/v1/models` (listing), `/v1/models/{model}` (detail), and `/v1/responses` (experimental). No custom server code is needed -- Ollama serves all of these natively. The install script just needs to ensure Ollama is running and bound to all interfaces.
 
-15. **Marker comment pattern for shell profile**: The install script must use a consistent marker pattern (`# >>> ollama-client >>>` / `# <<< ollama-client <<<`) to delimit the sourcing block in `~/.zshrc` and `~/.bashrc`. This enables idempotent insertion (skip if markers already present) and clean removal by uninstall.sh (delete everything between markers inclusive).
+15. **Marker comment pattern for shell profile**: The install script must use a consistent marker pattern (`# >>> ai-client >>>` / `# <<< ai-client <<<`) to delimit the sourcing block in `~/.zshrc` and `~/.bashrc`. This enables idempotent insertion (skip if markers already present) and clean removal by uninstall.sh (delete everything between markers inclusive).
 
 16. **"Sonnet" vs "Sonoma" typo corrected**: All READMEs (`server/README.md` line 19, `client/README.md` line 24, root `README.md` lines 51/56) now correctly say "macOS 14 Sonoma".
 
@@ -414,7 +414,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 **Blocks**: Priority 3 (client install.sh reads this template)
 
 **Spec refs**:
-- `client/specs/SCRIPTS.md` lines 20-23: "Template showing the exact variables required by the contract; Used by install.sh to create `~/.ollama-client/env`"
+- `client/specs/SCRIPTS.md` lines 20-23: "Template showing the exact variables required by the contract; Used by install.sh to create `~/.ai-client/env`"
 - `client/specs/API_CONTRACT.md` lines 39-43: exact variable names and values
 - `client/specs/FILES.md` line 16: file location `client/config/env.template`
 
@@ -422,7 +422,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 - [x] Create `client/config/` directory
 - [x] Create `env.template` with the following content:
   ```bash
-  # ollama-client environment configuration
+  # ai-client environment configuration
   # Source: client/specs/API_CONTRACT.md
   # Generated from env.template by install.sh -- do not edit manually
   export OLLAMA_API_BASE=http://__HOSTNAME__:11434/v1
@@ -430,7 +430,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
   export OPENAI_API_KEY=ollama
   # export AIDER_MODEL=ollama/<model-name>
   ```
-- [x] Use `__HOSTNAME__` as the placeholder (install.sh substitutes with actual hostname, default `ollama-server`)
+- [x] Use `__HOSTNAME__` as the placeholder (install.sh substitutes with actual hostname, default `ai-server`)
 - [x] Include `export` on each variable so they propagate to child processes when sourced
 - [x] Keep `AIDER_MODEL` commented out (optional per API contract)
 
@@ -489,7 +489,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
   - Ref: `server/SETUP.md` line 61 (now uses modern `launchctl bootstrap`)
   - Ref: `server/SETUP.md` line 66 for `launchctl kickstart -k` as the restart command
 - [x] Verify Ollama is listening on port 11434 with retry loop (timeout ~30s)
-- [x] Prompt user to set Tailscale machine name to `ollama-server` (or custom name)
+- [x] Prompt user to set Tailscale machine name to `ai-server` (or custom name)
   - Ref: `server/SETUP.md` line 82
 - [x] Print Tailscale ACL JSON snippet for admin console
   - Ref: `server/SETUP.md` lines 86-96, `server/specs/SECURITY.md` lines 11-12
@@ -545,22 +545,22 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 - [x] Check/install Tailscale GUI app; open for login + device approval
   - Ref: `client/specs/REQUIREMENTS.md` line 12
   - Ref: `client/specs/SCRIPTS.md` line 6
-- [x] Prompt for server hostname (default: `ollama-server`)
+- [x] Prompt for server hostname (default: `ai-server`)
   - Ref: `client/specs/SCRIPTS.md` line 7
-- [x] Create `~/.ollama-client/` directory
+- [x] Create `~/.ai-client/` directory
   - Ref: `client/specs/SCRIPTS.md` line 8
 - [x] Resolve env.template (dual-mode strategy):
   - **Local clone mode**: read `$(dirname "$0")/../config/env.template`
   - **curl-pipe mode**: use embedded heredoc fallback (template content hardcoded in script)
   - Detection: if `$0` is `bash` or `/dev/stdin` or the template file does not exist, use embedded mode
   - Ref: `client/SETUP.md` lines 11-13
-- [x] Generate `~/.ollama-client/env` by substituting `__HOSTNAME__` with chosen hostname
+- [x] Generate `~/.ai-client/env` by substituting `__HOSTNAME__` with chosen hostname
   - Ref: `client/specs/SCRIPTS.md` line 8
 - [x] Prompt user for consent before modifying shell profile
   - Ref: `client/specs/SCRIPTS.md` line 9 ("with user consent")
   - Ref: `client/SETUP.md` line 32 ("Update your shell profile")
-- [x] Append `source ~/.ollama-client/env` to `~/.zshrc` (or `~/.bashrc` for bash users)
-  - Guard with marker comment (`# >>> ollama-client >>>` / `# <<< ollama-client <<<`) for idempotency and clean removal
+- [x] Append `source ~/.ai-client/env` to `~/.zshrc` (or `~/.bashrc` for bash users)
+  - Guard with marker comment (`# >>> ai-client >>>` / `# <<< ai-client <<<`) for idempotency and clean removal
   - Only append if marker not already present
   - Handle both `~/.zshrc` and `~/.bashrc`
 - [x] Install pipx if not present: `brew install pipx`
@@ -570,7 +570,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 - [x] Install Aider via `pipx install aider-chat`
   - Ref: `client/specs/SCRIPTS.md` line 10
   - Ref: `client/specs/ARCHITECTURE.md` line 7
-- [x] Copy `uninstall.sh` to `~/.ollama-client/uninstall.sh` for curl-pipe users
+- [x] Copy `uninstall.sh` to `~/.ai-client/uninstall.sh` for curl-pipe users
   - In local clone mode: copy from `$(dirname "$0")/uninstall.sh`
   - In curl-pipe mode: download from GitHub or embed inline
   - This ensures uninstall is always available regardless of install method
@@ -608,9 +608,9 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
   - Handle case where Aider is not installed (graceful skip)
 - [x] Remove the marker-delimited block from `~/.zshrc` (and `~/.bashrc` if present)
   - Ref: `client/specs/SCRIPTS.md` line 17
-  - Use the same `# >>> ollama-client >>>` / `# <<< ollama-client <<<` markers from install.sh
+  - Use the same `# >>> ai-client >>>` / `# <<< ai-client <<<` markers from install.sh
   - Clean both `~/.zshrc` and `~/.bashrc`
-- [x] Delete `~/.ollama-client/` directory (includes env file and copied uninstall.sh)
+- [x] Delete `~/.ai-client/` directory (includes env file and copied uninstall.sh)
   - Ref: `client/specs/SCRIPTS.md` line 16
   - Handle case where directory does not exist
 - [x] Leave Tailscale, Homebrew, and pipx untouched
@@ -824,7 +824,7 @@ These constraints apply to ALL implementation work and are non-negotiable:
 
 7. **Aider is the only v1 interface** (`client/specs/ARCHITECTURE.md` line 7): But the env var setup ensures any OpenAI-compatible tool works automatically.
 
-8. **curl-pipe install support** (`client/SETUP.md` lines 11-13): Client install.sh must work when piped from curl. Solution: embed env.template as heredoc fallback; copy uninstall.sh to `~/.ollama-client/`.
+8. **curl-pipe install support** (`client/SETUP.md` lines 11-13): Client install.sh must work when piped from curl. Solution: embed env.template as heredoc fallback; copy uninstall.sh to `~/.ai-client/`.
 
 ## Spec Audit Findings (2026-02-10, re-audited 2026-02-10, v3 2026-02-10)
 
@@ -859,5 +859,5 @@ All previously identified documentation inconsistencies have been corrected (202
 2. ✅ **SETUP.md deprecated API**: `server/SETUP.md` now uses modern `launchctl bootstrap` command
 3. ✅ **SETUP.md conflicting service management**: Removed conflicting `brew services` command; now uses only `launchctl kickstart -k`
 4. ✅ **curl-pipe URL branch**: `client/SETUP.md` now uses correct `master` branch in URL
-5. ✅ **curl-pipe uninstall path**: `client/SETUP.md` now documents `~/.ollama-client/uninstall.sh` for curl-pipe users
+5. ✅ **curl-pipe uninstall path**: `client/SETUP.md` now documents `~/.ai-client/uninstall.sh` for curl-pipe users
 6. ✅ **`/v1/responses` endpoint version**: API contract now notes "requires Ollama 0.5.0+ (experimental)"

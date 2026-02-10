@@ -1,4 +1,4 @@
-# ollama-server Repository Layout
+# ai-server Repository Layout
 
 ```
 server/

@@ -1,4 +1,4 @@
-# ollama-server External Interfaces
+# ai-server External Interfaces
 
 ## Primary Interface
 

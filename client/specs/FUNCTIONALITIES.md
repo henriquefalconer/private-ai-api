@@ -1,4 +1,4 @@
-# ollama-client Functionalities (v1)
+# ai-client Functionalities (v1)
 
 ## Core Functionality
 

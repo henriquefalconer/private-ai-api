@@ -1,4 +1,4 @@
-# ollama-client Scripts
+# ai-client Scripts
 
 ## scripts/install.sh
 
@@ -7,14 +7,14 @@
 - Checks / installs Homebrew, Python 3.10+, Tailscale
 - Installs both Tailscale GUI (for user) and CLI (for connection detection)
 - Opens Tailscale app for login + device approval if not already connected
-- Prompts for server hostname (default: ollama-server)
-- Creates `~/.ollama-client/` directory
-- Generates `~/.ollama-client/env` with exact variables from API_CONTRACT.md
+- Prompts for server hostname (default: ai-server)
+- Creates `~/.ai-client/` directory
+- Generates `~/.ai-client/env` with exact variables from API_CONTRACT.md
 - Prompts for user consent before modifying shell profile
-- Appends `source ~/.ollama-client/env` to `~/.zshrc` or `~/.bashrc` with marker comments
+- Appends `source ~/.ai-client/env` to `~/.zshrc` or `~/.bashrc` with marker comments
 - Installs pipx if needed, runs `pipx ensurepath`
 - Installs Aider via pipx (isolated, no global pollution)
-- Copies uninstall.sh to `~/.ollama-client/` for curl-pipe users
+- Copies uninstall.sh to `~/.ai-client/` for curl-pipe users
 - Runs connectivity test (warns but does not abort if server unreachable)
 
 ### UX Requirements
@@ -25,7 +25,7 @@
 - **Interactive consent** - Always ask before modifying shell profile
 - **Dual-mode support** - Work both as local clone and curl-pipe installation:
   - Embed env.template content as heredoc fallback
-  - Copy uninstall.sh to `~/.ollama-client/` for later access
+  - Copy uninstall.sh to `~/.ai-client/` for later access
 - **Comprehensive Tailscale guidance** - Similar to server install:
   - Warn about sudo password prompt
   - List all permissions (System Extension, Notifications, Start on login)
@@ -43,7 +43,7 @@
 ### Functionality
 - Removes Aider via `pipx uninstall aider-chat`
 - Removes marker-delimited block from shell profile (`~/.zshrc` and `~/.bashrc`)
-- Deletes `~/.ollama-client/` directory (includes env file and copied uninstall script)
+- Deletes `~/.ai-client/` directory (includes env file and copied uninstall script)
 - Leaves Tailscale, Homebrew, and pipx untouched (user may need them for other tools)
 - Handles edge cases gracefully (Aider not installed, directory missing, profile not modified)
 
@@ -63,7 +63,7 @@
 Comprehensive test script that validates all client functionality. Designed to run on the client machine after installation.
 
 ### Environment Configuration Tests
-- Verify `~/.ollama-client/env` file exists
+- Verify `~/.ai-client/env` file exists
 - Verify all required environment variables are set:
   - `OLLAMA_API_BASE` (should be `http://<hostname>:11434/v1`)
   - `OPENAI_API_BASE` (should be `http://<hostname>:11434/v1`)
@@ -103,7 +103,7 @@ Comprehensive test script that validates all client functionality. Designed to r
 
 ### Script Behavior Tests
 - Verify install.sh idempotency (safe to re-run)
-- Verify uninstall.sh availability (local clone or `~/.ollama-client/uninstall.sh`)
+- Verify uninstall.sh availability (local clone or `~/.ai-client/uninstall.sh`)
 - Test uninstall.sh on clean system (should not error)
 
 ### Output Format
@@ -140,4 +140,4 @@ Comprehensive test script that validates all client functionality. Designed to r
 ## config/env.template
 
 - Template showing the exact variables required by the contract
-- Used by install.sh to create `~/.ollama-client/env`
+- Used by install.sh to create `~/.ai-client/env`

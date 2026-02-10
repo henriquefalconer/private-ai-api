@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# ollama-server uninstall script
+# ai-server uninstall script
 # Removes the Ollama LaunchAgent service and related configuration
 # Source: server/specs/SCRIPTS.md lines 21-29
 
@@ -26,7 +26,7 @@ error() {
 
 # Banner
 echo "================================================"
-echo "  ollama-server Uninstall Script"
+echo "  ai-server Uninstall Script"
 echo "================================================"
 echo ""
 
@@ -134,6 +134,6 @@ info "To uninstall Tailscale:"
 echo "  • brew uninstall tailscale"
 echo ""
 
-info "The ollama-server has been uninstalled."
+info "The ai-server has been uninstalled."
 echo "You can safely re-run the install script to set it up again."
 echo ""
