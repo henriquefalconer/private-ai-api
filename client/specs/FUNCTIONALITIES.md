@@ -1,4 +1,4 @@
-# ai-client Functionalities (v1)
+# remote-ollama ai-client Functionalities (v1)
 
 ## Core Functionality
 

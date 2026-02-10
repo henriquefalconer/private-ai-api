@@ -1,4 +1,4 @@
-# ai-server – Setup Instructions
+# remote-ollama ai-server – Setup Instructions
 
 Target: Apple Silicon Mac (high memory recommended) running recent macOS
 

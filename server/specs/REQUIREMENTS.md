@@ -1,4 +1,4 @@
-# ai-server Requirements
+# remote-ollama ai-server Requirements
 
 ## macOS
 

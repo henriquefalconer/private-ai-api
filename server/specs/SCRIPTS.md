@@ -1,4 +1,4 @@
-# ai-server Scripts
+# remote-ollama ai-server Scripts
 
 ## scripts/install.sh
 

@@ -1,4 +1,4 @@
-# ai-server Architecture
+# remote-ollama ai-server Architecture
 
 ## Core Principles
 

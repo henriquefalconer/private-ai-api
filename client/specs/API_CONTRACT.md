@@ -1,6 +1,6 @@
-# ai-server API Contract (client view)
+# remote-ollama ai-server API Contract (client view)
 
-The ai-server exposes a strict subset of the OpenAI API at the following base URL:
+The remote-ollama ai-server exposes a strict subset of the OpenAI API at the following base URL:
 
 ## Base URL
 

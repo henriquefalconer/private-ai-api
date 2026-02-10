@@ -1,10 +1,10 @@
-# ai-client
+# remote-ollama ai-client
 
 macOS client setup for connecting to remote Ollama.
 
 ## Overview
 
-The ai-client is a one-time installer that configures your macOS environment to use remote Ollama via OpenAI-compatible API.
+The remote-ollama ai-client is a one-time installer that configures your macOS environment to use remote Ollama via OpenAI-compatible API.
 
 After installation:
 - Aider (and other OpenAI-compatible tools) connect to remote Ollama automatically
@@ -44,7 +44,7 @@ After installation:
 - Homebrew
 - Python 3.10+
 - Tailscale account
-- Access to a ai-server (must be invited to the same Tailscale network)
+- Access to a remote-ollama ai-server (must be invited to the same Tailscale network)
 
 ## Installation
 

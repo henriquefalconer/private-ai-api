@@ -1,4 +1,4 @@
-# ai-server Repository Layout
+# remote-ollama ai-server Repository Layout
 
 ```
 server/

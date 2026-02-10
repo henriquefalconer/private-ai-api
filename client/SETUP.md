@@ -1,4 +1,4 @@
-# ai-client – Setup Instructions (macOS)
+# remote-ollama ai-client – Setup Instructions (macOS)
 
 ## Installation
 

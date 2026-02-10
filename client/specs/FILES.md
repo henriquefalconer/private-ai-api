@@ -1,4 +1,4 @@
-# ai-client Repository Layout
+# remote-ollama ai-client Repository Layout
 
 ```
 client/
