@@ -5,14 +5,14 @@
 
 ## Implementation Status (v0.0.3-dev)
 
-Re-audited 2026-02-10 (third pass) with exhaustive line-by-line spec-vs-implementation comparison using parallel subagents. All previously identified gaps confirmed (prior count of 29 was an arithmetic error; actual was 31). **4 additional gaps** found in `client/scripts/uninstall.sh` (dynamic summary tracking). Total: **35 spec compliance gaps**.
+Re-audited 2026-02-10 (fourth pass) with exhaustive line-by-line spec-vs-implementation comparison using parallel Opus/Sonnet subagents. All 35 previously identified gaps re-confirmed. **16 additional gaps** found across all scripts. Total: **51 spec compliance gaps**.
 
 - ✅ 8 of 8 spec-required scripts exist: env.template, server install.sh, server uninstall.sh, server test.sh, client install.sh, client uninstall.sh, client test.sh, warm-models.sh
 - ✅ Spec documentation complete: 7 server + 6 client = 13 spec files, all internally consistent
 - ✅ No TODO/FIXME/HACK/placeholder markers in any source files
 - ✅ `client/config/env.template` — fully compliant (all 4 vars, `export`, `__HOSTNAME__` placeholder, `AIDER_MODEL` commented)
-- ✅ `server/scripts/install.sh` — fully compliant (all functional + UX requirements met)
-- ⚠️ **35 spec compliance gaps found** (see Priority F below for full list)
+- ✅ `server/scripts/install.sh` — near-fully compliant (1 minor gap: no shell validation, see F7.3)
+- ⚠️ **51 spec compliance gaps found** (see Priority F below for full list)
 - ⏳ **2 documentation polish tasks** blocked until hardware testing complete
 
 # Implementation Plan
@@ -21,16 +21,16 @@ Prioritized task list for achieving full spec implementation of both server and 
 
 ## Current Status
 
-- **Specifications**: COMPLETE (7 server + 6 client = 13 spec files, all include test script specs)
+- **Specifications**: COMPLETE (7 server + 6 client = 13 spec files, all internally consistent)
 - **Documentation**: COMPLETE (README.md + SETUP.md for both server and client, plus root README, includes service management)
-- **Server implementation**: install.sh COMPLETE, uninstall.sh HAS GAPS (2), warm-models.sh HAS GAPS (2), test.sh HAS GAPS (6)
-- **Client implementation**: env.template COMPLETE, install.sh HAS GAPS (8), uninstall.sh HAS GAPS (6), test.sh HAS GAPS (9)
-- **UX consistency**: HAS GAPS (2 cross-cutting issues)
+- **Server implementation**: install.sh COMPLETE (1 minor cross-cutting UX gap in F7.3), uninstall.sh HAS GAPS (3), warm-models.sh HAS GAPS (3), test.sh HAS GAPS (9)
+- **Client implementation**: env.template COMPLETE, install.sh HAS GAPS (11), uninstall.sh HAS GAPS (6), test.sh HAS GAPS (15)
+- **UX consistency**: HAS GAPS (4 cross-cutting issues)
 - **Integration testing**: BLOCKED (scripts need gap fixes before hardware testing is meaningful)
 
 ## Remaining Work (Priority Order)
 
-Items sorted by priority -- implement in this order to achieve full spec compliance. Priorities A-D are COMPLETE. **Priority F (35 spec compliance gaps) is the current focus.**
+Items sorted by priority -- implement in this order to achieve full spec compliance. Priorities A-D are COMPLETE. **Priority F (51 spec compliance gaps) is the current focus.**
 
 ### Priority A: server/scripts/uninstall.sh -- ✅ COMPLETE
 - **File**: `server/scripts/uninstall.sh`
@@ -89,11 +89,11 @@ Items sorted by priority -- implement in this order to achieve full spec complia
 - ✅ Add quick-reference card for common operations (start/stop server, switch models, check status)
 - ✅ Add `warm-models.sh` documentation to `server/README.md` and `server/SETUP.md` (script exists in `server/scripts/warm-models.sh` and is spec'd in `server/specs/SCRIPTS.md` lines 25-33 and `server/specs/FILES.md` line 16, but neither user-facing doc mentions it)
 
-### Priority F: Spec Compliance Gaps (35 items) -- UPDATED
+### Priority F: Spec Compliance Gaps (51 items) -- UPDATED
 
-Deep audit (2026-02-10, re-confirmed 2026-02-10 v3) comparing every spec requirement line-by-line against implementation. All previously identified gaps re-confirmed; 4 additional gaps found in `client/scripts/uninstall.sh` (F6.3-F6.6). Grouped by script, sorted by priority within each group. Spec line numbers reference the requirement; implementation line numbers reference the current code.
+Deep audit (2026-02-10, v4) comparing every spec requirement line-by-line against implementation using parallel Opus/Sonnet subagents. All 35 previously identified gaps re-confirmed; **16 additional gaps** found across all scripts. Grouped by script, sorted by priority within each group. Spec line numbers reference the requirement; implementation line numbers reference the current code.
 
-#### F1. client/scripts/install.sh -- 8 gaps
+#### F1. client/scripts/install.sh -- 11 gaps
 
 - [ ] **F1.1 — Missing Homebrew noise suppression** (HIGH)
   - Spec: `client/specs/SCRIPTS.md` line 21 — "Set HOMEBREW_NO_ENV_HINTS and HOMEBREW_NO_INSTALL_CLEANUP"
@@ -135,7 +135,22 @@ Deep audit (2026-02-10, re-confirmed 2026-02-10 v3) comparing every spec require
   - Implementation: `client/scripts/install.sh` line 110 always runs `open -a Tailscale`
   - Fix: Check Tailscale connection status first, skip opening if already connected
 
-#### F2. client/scripts/test.sh -- 9 gaps
+- [ ] **F1.9 — Does not redirect brew/pipx install output to log files** (MEDIUM)
+  - Spec: `client/specs/SCRIPTS.md` line 24 — "Progress tracking - Show what's being installed/configured at each step"
+  - Implementation: `client/scripts/install.sh` lines 93, 97, 104, 224, 239 dump raw brew/pipx output to terminal; server install.sh redirects to `/tmp/*.log`
+  - Fix: Redirect verbose `brew install` and `pipx install` output to `/tmp/*.log` files, show brief progress messages instead
+
+- [ ] **F1.10 — Tailscale connection uses 60s timeout instead of interactive prompt** (MEDIUM)
+  - Spec: `client/specs/SCRIPTS.md` line 9 — "Opens Tailscale app for login + device approval"
+  - Implementation: `client/scripts/install.sh` lines 113-135 use 60-second polling loop; server install.sh uses interactive "Press Enter when ready" with no timeout
+  - Fix: Replace timeout loop with interactive prompt matching server install.sh pattern (first-time Tailscale setup routinely exceeds 60 seconds)
+
+- [ ] **F1.11 — Final summary omits AIDER_MODEL guidance** (LOW)
+  - Spec: `client/specs/API_CONTRACT.md` lines 39-43 — 4 env vars defined including optional `AIDER_MODEL`
+  - Implementation: Final summary at lines 304-307 displays only 3 env vars, no mention of AIDER_MODEL or how to configure it
+  - Fix: Add note about uncommenting AIDER_MODEL in `~/.private-ai-client/env` for default model selection
+
+#### F2. client/scripts/test.sh -- 15 gaps
 
 - [ ] **F2.1 — No test progress indication** (HIGH)
   - Spec: `client/specs/SCRIPTS.md` line 118 — "Progress indication (test X/total)"
@@ -182,7 +197,37 @@ Deep audit (2026-02-10, re-confirmed 2026-02-10 v3) comparing every spec require
   - Implementation: `--quick` skips chat completion tests but still runs contract validation and Aider integration tests
   - Fix: In quick mode, skip non-critical categories (API contract validation, Aider integration, script behavior)
 
-#### F3. server/scripts/test.sh -- 6 gaps
+- [ ] **F2.10 — Skipped tests lack "how to enable" guidance** (MEDIUM)
+  - Spec: `client/specs/SCRIPTS.md` line 129 — "Skip guidance - If tests are skipped, explain why and how to enable them"
+  - Implementation: Skip messages include brief reasons (e.g., "server tests skipped") but never explain how to enable (e.g., "remove --skip-server flag")
+  - Fix: Enhance `skip()` calls to include enablement guidance
+
+- [ ] **F2.11 — Final summary uses `===` separators, not a "box"** (LOW)
+  - Spec: `client/specs/SCRIPTS.md` line 130 — "Final summary box - Visually separated summary section"
+  - Implementation: `client/scripts/test.sh` lines 465-468 use plain `===` separators
+  - Fix: Use box-drawing characters or consistent visual framing matching spec's "box" requirement
+
+- [ ] **F2.12 — Final summary missing "Run install.sh" next step** (LOW)
+  - Spec: `client/specs/SCRIPTS.md` lines 130-133 — "Next steps if failures occurred (e.g., 'Run install.sh', 'Check server status')"
+  - Implementation: Generic troubleshooting tips shown at lines 479-484, but no "Run install.sh" suggestion
+  - Fix: Add "Run install.sh" as an explicit next-step suggestion when relevant failures occur
+
+- [ ] **F2.13 — Uninstall clean-system test only checks file existence** (MEDIUM)
+  - Spec: `client/specs/SCRIPTS.md` line 107 — "Test uninstall.sh on clean system (should not error)"
+  - Implementation: `client/scripts/test.sh` lines 441-452 check uninstall script availability but don't run it
+  - Fix: Add a dry-run or clean-system execution test to verify uninstall.sh runs without error
+
+- [ ] **F2.14 — Idempotency test only checks marker presence, not uniqueness** (LOW)
+  - Spec: `client/specs/SCRIPTS.md` line 105 — "Verify install.sh idempotency (safe to re-run)"
+  - Implementation: `client/scripts/test.sh` lines 454-462 check marker comments exist but don't verify they appear exactly once
+  - Fix: Count marker occurrences; duplicated markers indicate broken idempotency
+
+- [ ] **F2.15 — AIDER_MODEL check produces no visible output in non-verbose mode** (LOW)
+  - Spec: `client/specs/SCRIPTS.md` line 71 — "AIDER_MODEL (optional, check if set)"
+  - Implementation: `client/scripts/test.sh` lines 118-122 show AIDER_MODEL status only via `info()` (verbose-only); not counted in test totals
+  - Fix: Use `skip()` or `pass()` so the check appears in normal output and test counts
+
+#### F3. server/scripts/test.sh -- 9 gaps
 
 - [ ] **F3.1 — No test progress indication** (HIGH)
   - Spec: `server/specs/SCRIPTS.md` line 169 — "Progress indication: show test number / total"
@@ -214,7 +259,22 @@ Deep audit (2026-02-10, re-confirmed 2026-02-10 v3) comparing every spec require
   - Implementation: `server/scripts/test.sh` lines 279-285 check `-f` (existence) but not `-r` (readability)
   - Fix: Add `-r` check alongside `-f`
 
-#### F4. server/scripts/warm-models.sh -- 2 gaps
+- [ ] **F3.7 — Skipped tests lack "how to enable" guidance** (MEDIUM)
+  - Spec: `server/specs/SCRIPTS.md` line 180 — "Skip guidance - If tests are skipped, explain why and how to enable them"
+  - Implementation: Skip messages include reasons but no guidance on how to enable (e.g., "run without --skip-model-tests" or "pull a model first")
+  - Fix: Enhance `skip()` calls to include enablement guidance
+
+- [ ] **F3.8 — Final summary uses `===` separators, not a "box"** (LOW)
+  - Spec: `server/specs/SCRIPTS.md` line 181 — "Final summary box - Visually separated summary section"
+  - Implementation: `server/scripts/test.sh` lines 342-345 use plain `===` separators
+  - Fix: Use box-drawing characters or consistent visual framing
+
+- [ ] **F3.9 — Final summary lacks structured "next steps" section** (LOW)
+  - Spec: `server/specs/SCRIPTS.md` lines 181-184 — "Next steps if failures occurred"
+  - Implementation: Only shows `tail -f /tmp/ollama.stderr.log` on failure; no structured next-steps section
+  - Fix: Add structured next-steps section with common resolution actions
+
+#### F4. server/scripts/warm-models.sh -- 3 gaps
 
 - [ ] **F4.1 — No progress during `ollama pull`** (MEDIUM)
   - Spec: `server/specs/SCRIPTS.md` line 117 — "Show what's happening during long operations (pulling large models)"
@@ -226,7 +286,12 @@ Deep audit (2026-02-10, re-confirmed 2026-02-10 v3) comparing every spec require
   - Implementation: Uses "Model loaded into memory: $MODEL" and "Failed to pull model: $MODEL"
   - Fix: Adopt the spec's compact checkmark/cross format
 
-#### F5. server/scripts/uninstall.sh -- 2 gaps
+- [ ] **F4.3 — No time estimates for large downloads** (LOW)
+  - Spec: `server/specs/SCRIPTS.md` line 123 — "Time estimates - Optionally show estimated time remaining for large downloads"
+  - Implementation: No time estimation code; spec says "optionally" but no attempt is made
+  - Fix: Show download size and/or elapsed time during model pull operations
+
+#### F5. server/scripts/uninstall.sh -- 3 gaps
 
 - [ ] **F5.1 — No error/warning tracking in final summary** (MEDIUM)
   - Spec: `server/specs/SCRIPTS.md` line 93 — "Final summary shows any errors or warnings encountered"
@@ -237,6 +302,11 @@ Deep audit (2026-02-10, re-confirmed 2026-02-10 v3) comparing every spec require
   - Spec: `server/specs/SCRIPTS.md` line 94 — "Continue with remaining cleanup even if some steps fail"
   - Implementation: `set -euo pipefail` at line 2; individual steps use `|| warn` but unanticipated failures could terminate script
   - Fix: Review all commands for potential unhandled failures; consider `set +e` for cleanup sections
+
+- [ ] **F5.3 — Banner lacks explicit purpose statement** (LOW)
+  - Spec: `server/specs/SCRIPTS.md` line 87 — "Clear banner - Display script name and purpose at start"
+  - Implementation: `server/scripts/uninstall.sh` lines 27-30 show "private-ai-server Uninstall Script" but no purpose description
+  - Fix: Add brief purpose description (e.g., "Removes the Ollama LaunchAgent service and related configuration")
 
 #### F6. client/scripts/uninstall.sh -- 6 gaps
 
@@ -270,9 +340,9 @@ Deep audit (2026-02-10, re-confirmed 2026-02-10 v3) comparing every spec require
   - Implementation: Line 37 `pipx uninstall aider-chat || warn "..."` continues but doesn't track failure for summary
   - Fix: Track success/failure per step and reflect in final summary
 
-#### F7. UX Consistency Across All Scripts -- cross-cutting
+#### F7. UX Consistency Across All Scripts -- 4 cross-cutting gaps
 
-These are patterns where the specs require "consistent standards" (`IMPLEMENTATION_PLAN.md` line 24) but scripts differ:
+These are patterns where the specs require "consistent standards" but scripts differ:
 
 - [ ] **F7.1 — Inconsistent color palette** (LOW)
   - Only `server/scripts/install.sh` defines BOLD; BLUE is missing from server/uninstall.sh, server/warm-models.sh, and client/uninstall.sh
@@ -281,6 +351,16 @@ These are patterns where the specs require "consistent standards" (`IMPLEMENTATI
 - [ ] **F7.2 — Inconsistent visual hierarchy** (LOW)
   - Only `server/scripts/install.sh` has `section_break()` and `important_section()` functions with box-drawing characters; other scripts use plain `===` lines
   - Fix: Either standardize on box-drawing characters for all scripts or standardize on simple `===` separators
+
+- [ ] **F7.3 — server/scripts/install.sh does not validate user shell is zsh or bash** (LOW)
+  - Spec: `server/specs/REQUIREMENTS.md` line 7 — "zsh (default) or bash" listed as system requirement
+  - Implementation: Client install.sh validates shell at lines 58-68, but server install.sh does not check
+  - Fix: Add shell validation matching client install.sh pattern
+
+- [ ] **F7.4 — warm-models.sh banner missing "private-ai-server" prefix** (LOW)
+  - All other scripts use "private-ai-server" or "private-ai-client" prefix in their banners
+  - Implementation: `server/scripts/warm-models.sh` line 47 says just "Model Warming Script"
+  - Fix: Rename to "private-ai-server Model Warming Script" for consistency
 
 ---
 
@@ -796,17 +876,17 @@ A comprehensive audit of all 13 specification files was performed to validate in
 - **All requirements satisfiable**: Current implementation scope can fully satisfy all documented requirements
 - **No TODO/FIXME markers**: All spec files and implementation scripts are complete for v1 scope with no placeholder sections
 
-### Implementation-vs-spec audit (updated 2026-02-10, v3)
-Every implemented script was compared line-by-line against its spec requirements using parallel subagents. Third audit pass; all 29 original gaps re-confirmed, 4 new gaps found in client/scripts/uninstall.sh.
+### Implementation-vs-spec audit (updated 2026-02-10, v4)
+Every implemented script was compared line-by-line against its spec requirements using parallel Opus/Sonnet subagents. Fourth audit pass; all 35 previously identified gaps re-confirmed, 16 additional gaps found across all scripts. Total: 51 gaps.
 
 - **client/config/env.template**: ✅ All 4 variables present and correct, `export` used, `AIDER_MODEL` commented out, `__HOSTNAME__` placeholder correct
-- **server/scripts/install.sh**: ✅ All core functionality requirements met. All UX requirements met (has Homebrew noise suppression, comprehensive Tailscale guidance, boxed sections, interactive flow, final summary with troubleshooting). Near-perfect spec compliance.
-- **server/scripts/uninstall.sh**: ⚠️ Core functionality complete. 2 UX gaps: no error/warning tracking in summary (F5.1), `set -euo pipefail` could conflict with graceful degradation (F5.2)
-- **server/scripts/warm-models.sh**: ⚠️ Core functionality complete. 2 UX gaps: `ollama pull` progress suppressed (F4.1), message format differs from spec (F4.2)
-- **server/scripts/test.sh**: ⚠️ All 20 tests implemented. 6 UX/accuracy gaps: no progress indication (F3.1), no helpful failures (F3.2), banner missing test count (F3.3), verbose mode incomplete (F3.4), include_usage test doesn't verify usage (F3.5), log readability not checked (F3.6)
-- **client/scripts/install.sh**: ⚠️ Core functionality complete. 8 gaps including 3 HIGH: missing Homebrew noise suppression (F1.1), missing Tailscale guidance (F1.2), Tailscale GUI app not installed (F1.3), plus 5 MEDIUM/LOW UX gaps (F1.4-F1.8)
+- **server/scripts/install.sh**: ✅ Near-fully compliant. 1 minor gap: no shell validation (F7.3). All core functionality and UX requirements met.
+- **server/scripts/uninstall.sh**: ⚠️ Core functionality complete. 3 gaps: no error/warning tracking in summary (F5.1), `set -euo pipefail` could conflict with graceful degradation (F5.2), banner lacks purpose (F5.3)
+- **server/scripts/warm-models.sh**: ⚠️ Core functionality complete. 3 gaps: `ollama pull` progress suppressed (F4.1), message format differs from spec (F4.2), no time estimates (F4.3)
+- **server/scripts/test.sh**: ⚠️ All 20 tests implemented. 9 gaps: no progress indication (F3.1), no helpful failures (F3.2), banner missing test count (F3.3), verbose mode incomplete (F3.4), include_usage test doesn't verify usage (F3.5), log readability not checked (F3.6), skipped tests lack enablement guidance (F3.7), summary not boxed (F3.8), no next-steps section (F3.9)
+- **client/scripts/install.sh**: ⚠️ Core functionality complete. 11 gaps including 3 HIGH: missing Homebrew noise suppression (F1.1), missing Tailscale guidance (F1.2), Tailscale GUI app not installed (F1.3), plus 8 MEDIUM/LOW gaps (F1.4-F1.11)
 - **client/scripts/uninstall.sh**: ⚠️ Core functionality complete. 6 gaps: banner lacks purpose (F6.1), static summary always lists Aider (F6.2), static summary always lists shell mods (F6.3), static summary always lists config dir (F6.4), terminal reminder outside summary (F6.5), no failure state tracking (F6.6)
-- **client/scripts/test.sh**: ⚠️ All 27 tests implemented. 9 gaps including 2 HIGH: no progress indication (F2.1), no helpful failures (F2.2), plus 7 MEDIUM/LOW gaps (F2.3-F2.9)
+- **client/scripts/test.sh**: ⚠️ All 27 tests implemented. 15 gaps including 2 HIGH: no progress indication (F2.1), no helpful failures (F2.2), plus 13 MEDIUM/LOW gaps (F2.3-F2.15)
 
 ---
 
