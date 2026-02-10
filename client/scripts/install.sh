@@ -312,7 +312,7 @@ if [[ "$0" == "bash" || "$0" == "/dev/stdin" || ! -f "$LOCAL_TEMPLATE" ]]; then
 # remote-ollama ai-client environment configuration
 # Source: client/specs/API_CONTRACT.md
 # Generated from env.template by install.sh -- do not edit manually
-export OLLAMA_API_BASE=http://__HOSTNAME__:11434/v1
+export OLLAMA_API_BASE=http://__HOSTNAME__:11434
 export OPENAI_API_BASE=http://__HOSTNAME__:11434/v1
 export OPENAI_API_KEY=ollama
 # export AIDER_MODEL=ollama/<model-name>
