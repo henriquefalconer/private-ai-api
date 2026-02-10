@@ -11,8 +11,8 @@ Prioritized task list for achieving full spec implementation of both server and 
 
 - **Specifications**: COMPLETE (5 server + 6 client = 11 spec files)
 - **Documentation**: COMPLETE (README.md + SETUP.md for both server and client, plus root README)
-- **Server implementation**: NOT STARTED (`server/scripts/` directory does not exist)
-- **Client implementation**: NOT STARTED (`client/scripts/` and `client/config/` directories do not exist)
+- **Server implementation**: IN PROGRESS (install.sh COMPLETE, warm-models.sh NOT STARTED)
+- **Client implementation**: IN PROGRESS (env.template COMPLETE, scripts NOT STARTED)
 - **Integration testing**: BLOCKED (requires both server and client implementation)
 
 ## Spec Audit Summary
@@ -23,8 +23,8 @@ Every spec file was read and cross-referenced. Findings are grouped below.
 
 | Component | File | Spec Source | Status |
 |-----------|------|-------------|--------|
-| Client | `client/config/env.template` | `client/specs/FILES.md` line 16 | NOT STARTED |
-| Server | `server/scripts/install.sh` | `server/specs/FILES.md` line 12 | NOT STARTED |
+| Client | `client/config/env.template` | `client/specs/FILES.md` line 16 | COMPLETE |
+| Server | `server/scripts/install.sh` | `server/specs/FILES.md` line 12 | COMPLETE |
 | Client | `client/scripts/install.sh` | `client/specs/FILES.md` line 12 | NOT STARTED |
 | Client | `client/scripts/uninstall.sh` | `client/specs/FILES.md` line 13 | NOT STARTED |
 | Server | `server/scripts/warm-models.sh` | `server/specs/FILES.md` line 13 | NOT STARTED |
@@ -109,7 +109,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 
 ## Priority 2 -- Server: `server/scripts/install.sh`
 
-**Status**: NOT STARTED
+**Status**: COMPLETE
 **Effort**: Large (complex multi-step installer)
 **Dependencies**: None (server is independent of client)
 **Blocks**: Priority 5 (warm-models.sh), Priority 6 (integration testing)
@@ -128,46 +128,46 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 - `server/SETUP.md` lines 1-113: step-by-step manual setup (script automates this)
 
 **Tasks**:
-- [ ] Create `server/scripts/` directory
-- [ ] Add `#!/bin/bash` + `set -euo pipefail` header
-- [ ] Detect macOS + Apple Silicon (`uname -m` = `arm64`); abort otherwise
+- [x] Create `server/scripts/` directory
+- [x] Add `#!/bin/bash` + `set -euo pipefail` header
+- [x] Detect macOS + Apple Silicon (`uname -m` = `arm64`); abort otherwise
   - Ref: `server/specs/ARCHITECTURE.md` line 15
-- [ ] Check/install Homebrew (prompt user if missing)
+- [x] Check/install Homebrew (prompt user if missing)
   - Ref: `server/SETUP.md` line 8
-- [ ] Check/install Tailscale via `brew install tailscale`
+- [x] Check/install Tailscale via `brew install tailscale`
   - Ref: `server/SETUP.md` lines 15-17
-- [ ] Open Tailscale GUI for login + device approval; wait for connection; display Tailscale IP
+- [x] Open Tailscale GUI for login + device approval; wait for connection; display Tailscale IP
   - Ref: `server/SETUP.md` line 17
-- [ ] Check/install Ollama via `brew install ollama`
+- [x] Check/install Ollama via `brew install ollama`
   - Ref: `server/SETUP.md` lines 22-23
-- [ ] Validate Ollama binary path (default `/opt/homebrew/bin/ollama`, fall back to `which ollama`)
+- [x] Validate Ollama binary path (default `/opt/homebrew/bin/ollama`, fall back to `which ollama`)
   - Ref: `server/SETUP.md` line 41 (hardcoded path)
-- [ ] Stop any existing Ollama service to avoid conflicts
+- [x] Stop any existing Ollama service to avoid conflicts
   - Must handle both `brew services stop ollama` and `launchctl bootout` cases
   - Ref: `server/SETUP.md` line 64
-- [ ] Create `~/Library/LaunchAgents/com.ollama.plist` with:
+- [x] Create `~/Library/LaunchAgents/com.ollama.plist` with:
   - `ProgramArguments`: validated Ollama binary path + `serve`
   - `EnvironmentVariables`: `OLLAMA_HOST=0.0.0.0` (bind all interfaces)
   - `KeepAlive=true`, `RunAtLoad=true`
   - `StandardOutPath=/tmp/ollama.stdout.log`, `StandardErrorPath=/tmp/ollama.stderr.log`
   - Ref: `server/SETUP.md` lines 32-59 (exact plist XML)
   - Ref: `server/specs/INTERFACES.md` line 12
-- [ ] Load plist via `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ollama.plist`
+- [x] Load plist via `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ollama.plist`
   - For idempotency: `launchctl bootout gui/$(id -u)/com.ollama` first (ignore errors if not loaded)
   - Ref: `server/SETUP.md` line 61 (now uses modern `launchctl bootstrap`)
   - Ref: `server/SETUP.md` line 66 for `launchctl kickstart -k` as the restart command
-- [ ] Verify Ollama is listening on port 11434 with retry loop (timeout ~30s)
-- [ ] Prompt user to set Tailscale machine name to `private-ai-server` (or custom name)
+- [x] Verify Ollama is listening on port 11434 with retry loop (timeout ~30s)
+- [x] Prompt user to set Tailscale machine name to `private-ai-server` (or custom name)
   - Ref: `server/SETUP.md` line 82
-- [ ] Print Tailscale ACL JSON snippet for admin console
+- [x] Print Tailscale ACL JSON snippet for admin console
   - Ref: `server/SETUP.md` lines 86-96, `server/specs/SECURITY.md` lines 11-12
-- [ ] Run self-test: `curl -sf http://localhost:11434/v1/models` should return JSON
+- [x] Run self-test: `curl -sf http://localhost:11434/v1/models` should return JSON
   - Ref: `server/SETUP.md` lines 98-109
-- [ ] Make script idempotent (safe to re-run)
-- [ ] Comprehensive error handling with clear messages at every step
-- [ ] Ensure Ollama does NOT run as root (LaunchAgent inherently runs as user; verify with `whoami` guard)
+- [x] Make script idempotent (safe to re-run)
+- [x] Comprehensive error handling with clear messages at every step
+- [x] Ensure Ollama does NOT run as root (LaunchAgent inherently runs as user; verify with `whoami` guard)
   - Ref: `server/specs/SECURITY.md` line 24
-- [ ] Do NOT set `OLLAMA_ORIGINS` in v1 (add plist comment for future reference)
+- [x] Do NOT set `OLLAMA_ORIGINS` in v1 (add plist comment for future reference)
   - Ref: `server/specs/SECURITY.md` lines 28-29
 
 **SETUP.md documentation now corrected**:
