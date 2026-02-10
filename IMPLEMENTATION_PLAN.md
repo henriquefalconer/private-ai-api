@@ -79,7 +79,7 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 
 ## Priority 1 -- Client: `client/config/env.template`
 
-**Status**: NOT STARTED
+**Status**: COMPLETE
 **Effort**: Trivial (~8 lines)
 **Dependencies**: None
 **Blocks**: Priority 3 (client install.sh reads this template)
@@ -90,8 +90,8 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
 - `client/specs/FILES.md` line 16: file location `client/config/env.template`
 
 **Tasks**:
-- [ ] Create `client/config/` directory
-- [ ] Create `env.template` with the following content:
+- [x] Create `client/config/` directory
+- [x] Create `env.template` with the following content:
   ```bash
   # private-ai-client environment configuration
   # Source: client/specs/API_CONTRACT.md
@@ -101,9 +101,9 @@ This ordering is optimal because: (a) the trivial file is first to unblock downs
   export OPENAI_API_KEY=ollama
   # export AIDER_MODEL=ollama/<model-name>
   ```
-- [ ] Use `__HOSTNAME__` as the placeholder (install.sh substitutes with actual hostname, default `private-ai-server`)
-- [ ] Include `export` on each variable so they propagate to child processes when sourced
-- [ ] Keep `AIDER_MODEL` commented out (optional per API contract)
+- [x] Use `__HOSTNAME__` as the placeholder (install.sh substitutes with actual hostname, default `private-ai-server`)
+- [x] Include `export` on each variable so they propagate to child processes when sourced
+- [x] Keep `AIDER_MODEL` commented out (optional per API contract)
 
 ---
 
