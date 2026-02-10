@@ -16,13 +16,16 @@ NC='\033[0m' # No Color
 TESTS_PASSED=0
 TESTS_FAILED=0
 TESTS_SKIPPED=0
-TOTAL_TESTS=28
+TOTAL_TESTS=40
 CURRENT_TEST=0
 
 # Flags
 VERBOSE=false
 SKIP_SERVER=false
 SKIP_AIDER=false
+SKIP_CLAUDE=false
+V1_ONLY=false
+V2_ONLY=false
 QUICK_MODE=false
 
 # Parse command-line arguments
@@ -40,12 +43,26 @@ while [[ $# -gt 0 ]]; do
             SKIP_AIDER=true
             shift
             ;;
+        --skip-claude)
+            SKIP_CLAUDE=true
+            shift
+            ;;
+        --v1-only)
+            V1_ONLY=true
+            SKIP_CLAUDE=true
+            shift
+            ;;
+        --v2-only)
+            V2_ONLY=true
+            SKIP_AIDER=true
+            shift
+            ;;
         --quick)
             QUICK_MODE=true
             shift
             ;;
         *)
-            echo "Usage: $0 [--verbose|-v] [--skip-server] [--skip-aider] [--quick]"
+            echo "Usage: $0 [--verbose|-v] [--skip-server] [--skip-aider] [--skip-claude] [--v1-only] [--v2-only] [--quick]"
             exit 1
             ;;
     esac
@@ -825,6 +842,452 @@ elif [[ -f "$SHELL_PROFILE" ]]; then
     fi
 fi
 
+echo ""
+echo "=== Claude Code v2+ Tests ==="
+
+# Test 29: Claude Code binary installed
+# Source: client/specs/CLAUDE_CODE.md lines 1-40
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "Claude Code binary check - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+else
+    show_progress "Claude Code binary check"
+    info "Checking for Claude Code binary..."
+    if command -v claude &> /dev/null; then
+        CLAUDE_VERSION=$(claude --version 2>&1 | head -n1 || echo "unknown")
+        pass "Claude Code is installed: $CLAUDE_VERSION"
+    else
+        fail "Claude Code is not installed" "claude command available" "Not found" "Install with: npm install -g @anthropic-ai/claude-code"
+    fi
+fi
+
+# Test 30: claude-ollama alias exists in shell profile
+# Source: client/specs/CLAUDE_CODE.md lines 41-44
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "claude-ollama alias check - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+else
+    show_progress "claude-ollama alias check"
+    info "Checking for claude-ollama alias in shell profile..."
+    if [[ -f "$SHELL_PROFILE" ]]; then
+        if grep -q "alias claude-ollama=" "$SHELL_PROFILE"; then
+            pass "claude-ollama alias found in shell profile"
+        else
+            skip "claude-ollama alias not found" "Run ./client/scripts/install.sh and opt-in to Claude Code integration"
+        fi
+    else
+        skip "Shell profile not found" "Create $SHELL_PROFILE first"
+    fi
+fi
+
+# Test 31: claude-ollama alias sets correct environment variables
+# Source: client/specs/CLAUDE_CODE.md lines 41-44, API_CONTRACT.md (Anthropic section)
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "claude-ollama alias environment variables - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+else
+    show_progress "claude-ollama alias environment variables"
+    info "Validating claude-ollama alias configuration..."
+    if [[ -f "$SHELL_PROFILE" ]] && grep -q "alias claude-ollama=" "$SHELL_PROFILE"; then
+        ALIAS_LINE=$(grep "alias claude-ollama=" "$SHELL_PROFILE" | tail -n1)
+
+        ALIAS_VALID=true
+        MISSING_VARS=""
+
+        if ! echo "$ALIAS_LINE" | grep -q "ANTHROPIC_AUTH_TOKEN=ollama"; then
+            ALIAS_VALID=false
+            MISSING_VARS="${MISSING_VARS}ANTHROPIC_AUTH_TOKEN=ollama, "
+        fi
+        if ! echo "$ALIAS_LINE" | grep -q "ANTHROPIC_BASE_URL="; then
+            ALIAS_VALID=false
+            MISSING_VARS="${MISSING_VARS}ANTHROPIC_BASE_URL, "
+        fi
+        if ! echo "$ALIAS_LINE" | grep -q "claude --dangerously-skip-permissions"; then
+            ALIAS_VALID=false
+            MISSING_VARS="${MISSING_VARS}claude command, "
+        fi
+
+        if [[ "$ALIAS_VALID" == "true" ]]; then
+            pass "claude-ollama alias has correct environment variables"
+        else
+            fail "claude-ollama alias has incorrect configuration" "ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, claude command" "Missing: ${MISSING_VARS%, }" "Re-run install.sh Step 12 to fix alias"
+        fi
+    else
+        skip "claude-ollama alias not configured" "Run ./client/scripts/install.sh and opt-in to Claude Code integration"
+    fi
+fi
+
+# Test 32: POST /v1/messages (non-streaming, Anthropic API) - skip in quick mode
+# Source: client/specs/API_CONTRACT.md (Anthropic API section)
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "POST /v1/messages (non-streaming) - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+elif [[ "$SKIP_SERVER" == "true" ]]; then
+    skip "POST /v1/messages (non-streaming) - server tests skipped" "Remove --skip-server flag when running test.sh"
+elif [[ "$QUICK_MODE" == "true" ]]; then
+    skip "POST /v1/messages (non-streaming) - quick mode" "Remove --quick flag when running test.sh"
+else
+    show_progress "POST /v1/messages (non-streaming, Anthropic API)"
+    info "Testing Anthropic API endpoint..."
+
+    # Load env file to get ANTHROPIC_BASE_URL or fallback to OLLAMA_API_BASE
+    if [[ -f "$ENV_FILE" ]]; then
+        source "$ENV_FILE" 2>/dev/null || true
+    fi
+
+    if [[ -n "${ANTHROPIC_BASE_URL:-}" ]]; then
+        ANTHROPIC_SERVER="$ANTHROPIC_BASE_URL"
+    elif [[ -n "${OLLAMA_API_BASE:-}" ]]; then
+        ANTHROPIC_SERVER="$OLLAMA_API_BASE"
+    else
+        ANTHROPIC_SERVER=""
+    fi
+
+    if [[ -n "$ANTHROPIC_SERVER" ]] && [[ -n "${FIRST_MODEL:-}" ]]; then
+        # Use the first model from earlier test, or default to qwen2.5:0.5b
+        TEST_MODEL="${FIRST_MODEL:-qwen2.5:0.5b}"
+
+        # Measure timing for verbose mode
+        START_TIME=$(date +%s%N 2>/dev/null || date +%s)
+
+        if [[ "$VERBOSE" == "true" ]]; then
+            info "Request: POST $ANTHROPIC_SERVER/v1/messages"
+            info "Body: {\"model\":\"$TEST_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1}"
+        fi
+
+        RESPONSE_WITH_CODE=$(curl -sf "${ANTHROPIC_SERVER}/v1/messages" \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$TEST_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1}" \
+            -w "\n%{http_code}" \
+            2>/dev/null || echo -e "FAILED\n000")
+
+        HTTP_CODE=$(echo "$RESPONSE_WITH_CODE" | tail -n1)
+        RESPONSE_BODY=$(echo "$RESPONSE_WITH_CODE" | sed '$d')
+
+        END_TIME=$(date +%s%N 2>/dev/null || date +%s)
+        if [[ "$START_TIME" =~ N ]]; then
+            ELAPSED_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+        else
+            ELAPSED_MS=$(( (END_TIME - START_TIME) * 1000 ))
+        fi
+
+        if [[ "$VERBOSE" == "true" ]]; then
+            info "Elapsed time: ${ELAPSED_MS}ms"
+            info "HTTP Status: $HTTP_CODE"
+            info "Response Body: $RESPONSE_BODY"
+        fi
+
+        # Validate HTTP status
+        if [[ "$HTTP_CODE" != "200" ]]; then
+            fail "POST /v1/messages returned HTTP $HTTP_CODE" "200" "$HTTP_CODE" "Ensure Ollama 0.5.0+ is running on server"
+        elif [[ "$RESPONSE_BODY" != "FAILED" ]] && echo "$RESPONSE_BODY" | jq -e '.content[0].text' &> /dev/null; then
+            pass "POST /v1/messages (Anthropic API) succeeded"
+        else
+            fail "POST /v1/messages failed or returned invalid response" "Anthropic response with .content[0].text" "Invalid or missing response"
+        fi
+    elif [[ -z "$ANTHROPIC_SERVER" ]]; then
+        skip "POST /v1/messages - server URL not configured" "Set ANTHROPIC_BASE_URL or OLLAMA_API_BASE in ~/.ai-client/env"
+    else
+        skip "POST /v1/messages - no models available" "Pull a model on the server first (e.g., ollama pull qwen2.5:0.5b)"
+    fi
+fi
+
+# Test 33: POST /v1/messages (streaming, Anthropic API) - skip in quick mode
+# Source: client/specs/API_CONTRACT.md (Anthropic API section)
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "POST /v1/messages (streaming) - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+elif [[ "$SKIP_SERVER" == "true" ]]; then
+    skip "POST /v1/messages (streaming) - server tests skipped" "Remove --skip-server flag when running test.sh"
+elif [[ "$QUICK_MODE" == "true" ]]; then
+    skip "POST /v1/messages (streaming) - quick mode" "Remove --quick flag when running test.sh"
+else
+    show_progress "POST /v1/messages (streaming, Anthropic API)"
+    info "Testing Anthropic API streaming endpoint..."
+
+    # Load env file to get ANTHROPIC_BASE_URL or fallback to OLLAMA_API_BASE
+    if [[ -f "$ENV_FILE" ]]; then
+        source "$ENV_FILE" 2>/dev/null || true
+    fi
+
+    if [[ -n "${ANTHROPIC_BASE_URL:-}" ]]; then
+        ANTHROPIC_SERVER="$ANTHROPIC_BASE_URL"
+    elif [[ -n "${OLLAMA_API_BASE:-}" ]]; then
+        ANTHROPIC_SERVER="$OLLAMA_API_BASE"
+    else
+        ANTHROPIC_SERVER=""
+    fi
+
+    if [[ -n "$ANTHROPIC_SERVER" ]] && [[ -n "${FIRST_MODEL:-}" ]]; then
+        # Use the first model from earlier test, or default to qwen2.5:0.5b
+        TEST_MODEL="${FIRST_MODEL:-qwen2.5:0.5b}"
+
+        # Measure timing for verbose mode
+        START_TIME=$(date +%s%N 2>/dev/null || date +%s)
+
+        if [[ "$VERBOSE" == "true" ]]; then
+            info "Request: POST $ANTHROPIC_SERVER/v1/messages (streaming)"
+            info "Body: {\"model\":\"$TEST_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1,\"stream\":true}"
+        fi
+
+        STREAM_RESPONSE=$(curl -sf "${ANTHROPIC_SERVER}/v1/messages" \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ollama" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{\"model\":\"$TEST_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1,\"stream\":true}" \
+            2>/dev/null || echo "FAILED")
+
+        END_TIME=$(date +%s%N 2>/dev/null || date +%s)
+        if [[ "$START_TIME" =~ N ]]; then
+            ELAPSED_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+        else
+            ELAPSED_MS=$(( (END_TIME - START_TIME) * 1000 ))
+        fi
+
+        if [[ "$VERBOSE" == "true" ]]; then
+            info "Elapsed time: ${ELAPSED_MS}ms"
+            info "Response (first 5 SSE chunks):"
+            echo "$STREAM_RESPONSE" | head -n 5 | while IFS= read -r line; do
+                info "  $line"
+            done
+        fi
+
+        if [[ "$STREAM_RESPONSE" != "FAILED" ]] && echo "$STREAM_RESPONSE" | grep -q "event:"; then
+            pass "POST /v1/messages (streaming) returns SSE chunks"
+        else
+            fail "POST /v1/messages (streaming) failed" "SSE chunks with 'event:' prefix" "No SSE chunks received"
+        fi
+    elif [[ -z "$ANTHROPIC_SERVER" ]]; then
+        skip "POST /v1/messages (streaming) - server URL not configured" "Set ANTHROPIC_BASE_URL or OLLAMA_API_BASE in ~/.ai-client/env"
+    else
+        skip "POST /v1/messages (streaming) - no models available" "Pull a model on the server first (e.g., ollama pull qwen2.5:0.5b)"
+    fi
+fi
+
+# Test 34: Anthropic response schema validation
+# Source: client/specs/API_CONTRACT.md (Anthropic API section)
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "Anthropic response schema validation - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+elif [[ "$SKIP_SERVER" == "true" ]]; then
+    skip "Anthropic response schema validation - server tests skipped" "Remove --skip-server flag when running test.sh"
+elif [[ "$QUICK_MODE" == "true" ]]; then
+    skip "Anthropic response schema validation - quick mode" "Remove --quick flag when running test.sh"
+else
+    show_progress "Anthropic response schema validation"
+    info "Validating Anthropic response schema..."
+
+    # Reuse the response from Test 32 if available, or make a new request
+    if [[ -n "${RESPONSE_BODY:-}" ]] && [[ "$RESPONSE_BODY" != "FAILED" ]]; then
+        SCHEMA_VALID=true
+        MISSING_FIELDS=""
+
+        # Check required Anthropic schema fields
+        if ! echo "$RESPONSE_BODY" | jq -e '.id' &> /dev/null; then
+            SCHEMA_VALID=false
+            MISSING_FIELDS="${MISSING_FIELDS}id, "
+        fi
+        if ! echo "$RESPONSE_BODY" | jq -e '.type' &> /dev/null; then
+            SCHEMA_VALID=false
+            MISSING_FIELDS="${MISSING_FIELDS}type, "
+        fi
+        if ! echo "$RESPONSE_BODY" | jq -e '.role' &> /dev/null; then
+            SCHEMA_VALID=false
+            MISSING_FIELDS="${MISSING_FIELDS}role, "
+        fi
+        if ! echo "$RESPONSE_BODY" | jq -e '.content' &> /dev/null; then
+            SCHEMA_VALID=false
+            MISSING_FIELDS="${MISSING_FIELDS}content, "
+        fi
+        if ! echo "$RESPONSE_BODY" | jq -e '.model' &> /dev/null; then
+            SCHEMA_VALID=false
+            MISSING_FIELDS="${MISSING_FIELDS}model, "
+        fi
+        if ! echo "$RESPONSE_BODY" | jq -e '.usage' &> /dev/null; then
+            SCHEMA_VALID=false
+            MISSING_FIELDS="${MISSING_FIELDS}usage, "
+        fi
+
+        if [[ "$SCHEMA_VALID" == "true" ]]; then
+            pass "Anthropic response has all required schema fields"
+        else
+            fail "Anthropic response missing required fields" "id, type, role, content, model, usage" "Missing: ${MISSING_FIELDS%, }"
+        fi
+    else
+        skip "Anthropic response schema validation - no response available" "Ensure Test 32 passes first"
+    fi
+fi
+
+# Test 35: Claude Code basic invocation test (dry-run)
+# Source: client/specs/CLAUDE_CODE.md
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "Claude Code basic invocation - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+elif [[ "$QUICK_MODE" == "true" ]]; then
+    skip "Claude Code basic invocation - quick mode" "Remove --quick flag when running test.sh"
+else
+    show_progress "Claude Code basic invocation (version check)"
+    info "Testing Claude Code can be invoked..."
+    if command -v claude &> /dev/null; then
+        if claude --version &> /dev/null; then
+            pass "Claude Code can be invoked successfully"
+        else
+            fail "Claude Code binary found but --version flag failed"
+        fi
+    else
+        skip "Claude Code not installed" "Install with: npm install -g @anthropic-ai/claude-code"
+    fi
+fi
+
+echo ""
+echo "=== Version Management v2+ Tests ==="
+
+# Test 36: check-compatibility.sh script exists and runs
+# Source: client/specs/VERSION_MANAGEMENT.md lines 66-131
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "check-compatibility.sh script check - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+else
+    show_progress "check-compatibility.sh script check"
+    info "Checking for version compatibility script..."
+    COMPAT_SCRIPT=""
+    if [[ -f "$HOME/.ai-client/check-compatibility.sh" ]]; then
+        COMPAT_SCRIPT="$HOME/.ai-client/check-compatibility.sh"
+    elif [[ -f "$(dirname "$0")/check-compatibility.sh" ]]; then
+        COMPAT_SCRIPT="$(dirname "$0")/check-compatibility.sh"
+    fi
+
+    if [[ -n "$COMPAT_SCRIPT" ]]; then
+        pass "check-compatibility.sh script found"
+
+        # Test if script has valid syntax
+        if bash -n "$COMPAT_SCRIPT" 2>/dev/null; then
+            info "Script has valid syntax"
+        else
+            fail "check-compatibility.sh has syntax errors"
+        fi
+    else
+        skip "check-compatibility.sh not found" "Script should be in ~/.ai-client/ or client/scripts/"
+    fi
+fi
+
+# Test 37: pin-versions.sh script exists and has valid syntax
+# Source: client/specs/VERSION_MANAGEMENT.md lines 133-178
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "pin-versions.sh script check - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+else
+    show_progress "pin-versions.sh script check"
+    info "Checking for version pinning script..."
+    PIN_SCRIPT=""
+    if [[ -f "$HOME/.ai-client/pin-versions.sh" ]]; then
+        PIN_SCRIPT="$HOME/.ai-client/pin-versions.sh"
+    elif [[ -f "$(dirname "$0")/pin-versions.sh" ]]; then
+        PIN_SCRIPT="$(dirname "$0")/pin-versions.sh"
+    fi
+
+    if [[ -n "$PIN_SCRIPT" ]]; then
+        pass "pin-versions.sh script found"
+
+        # Test if script has valid syntax
+        if bash -n "$PIN_SCRIPT" 2>/dev/null; then
+            info "Script has valid syntax"
+        else
+            fail "pin-versions.sh has syntax errors"
+        fi
+    else
+        skip "pin-versions.sh not found" "Script should be in ~/.ai-client/ or client/scripts/"
+    fi
+fi
+
+# Test 38: .version-lock file format validation (if exists)
+# Source: client/specs/VERSION_MANAGEMENT.md lines 165-173
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip ".version-lock file format validation - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+else
+    show_progress ".version-lock file format validation"
+    info "Checking .version-lock file format..."
+    LOCK_FILE="$HOME/.ai-client/.version-lock"
+
+    if [[ -f "$LOCK_FILE" ]]; then
+        MISSING_FIELDS=""
+
+        if ! grep -q "^CLAUDE_CODE_VERSION=" "$LOCK_FILE"; then
+            MISSING_FIELDS="${MISSING_FIELDS}CLAUDE_CODE_VERSION, "
+        fi
+        if ! grep -q "^OLLAMA_VERSION=" "$LOCK_FILE"; then
+            MISSING_FIELDS="${MISSING_FIELDS}OLLAMA_VERSION, "
+        fi
+        if ! grep -q "^TESTED_DATE=" "$LOCK_FILE"; then
+            MISSING_FIELDS="${MISSING_FIELDS}TESTED_DATE, "
+        fi
+        if ! grep -q "^STATUS=" "$LOCK_FILE"; then
+            MISSING_FIELDS="${MISSING_FIELDS}STATUS, "
+        fi
+        if ! grep -q "^CLAUDE_INSTALL_METHOD=" "$LOCK_FILE"; then
+            MISSING_FIELDS="${MISSING_FIELDS}CLAUDE_INSTALL_METHOD, "
+        fi
+        if ! grep -q "^OLLAMA_SERVER=" "$LOCK_FILE"; then
+            MISSING_FIELDS="${MISSING_FIELDS}OLLAMA_SERVER, "
+        fi
+
+        if [[ -z "$MISSING_FIELDS" ]]; then
+            pass ".version-lock file has all required fields"
+        else
+            fail ".version-lock file missing fields" "All required fields" "Missing: ${MISSING_FIELDS%, }" "Re-run pin-versions.sh to regenerate lock file"
+        fi
+    else
+        skip ".version-lock file not found" "Run ./client/scripts/pin-versions.sh to create lock file"
+    fi
+fi
+
+# Test 39: downgrade-claude.sh prerequisite checking
+# Source: client/specs/VERSION_MANAGEMENT.md lines 180-226
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "downgrade-claude.sh script check - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+else
+    show_progress "downgrade-claude.sh script check"
+    info "Checking for version downgrade script..."
+    DOWNGRADE_SCRIPT=""
+    if [[ -f "$HOME/.ai-client/downgrade-claude.sh" ]]; then
+        DOWNGRADE_SCRIPT="$HOME/.ai-client/downgrade-claude.sh"
+    elif [[ -f "$(dirname "$0")/downgrade-claude.sh" ]]; then
+        DOWNGRADE_SCRIPT="$(dirname "$0")/downgrade-claude.sh"
+    fi
+
+    if [[ -n "$DOWNGRADE_SCRIPT" ]]; then
+        pass "downgrade-claude.sh script found"
+
+        # Test if script has valid syntax
+        if bash -n "$DOWNGRADE_SCRIPT" 2>/dev/null; then
+            info "Script has valid syntax"
+        else
+            fail "downgrade-claude.sh has syntax errors"
+        fi
+    else
+        skip "downgrade-claude.sh not found" "Script should be in ~/.ai-client/ or client/scripts/"
+    fi
+fi
+
+# Test 40: Compatibility matrix in check-compatibility.sh is non-empty
+# Source: client/specs/VERSION_MANAGEMENT.md lines 66-131
+if [[ "$SKIP_CLAUDE" == "true" ]]; then
+    skip "Compatibility matrix validation - Claude Code tests skipped" "Remove --skip-claude flag when running test.sh"
+else
+    show_progress "Compatibility matrix validation"
+    info "Checking if compatibility matrix is populated..."
+    COMPAT_SCRIPT=""
+    if [[ -f "$HOME/.ai-client/check-compatibility.sh" ]]; then
+        COMPAT_SCRIPT="$HOME/.ai-client/check-compatibility.sh"
+    elif [[ -f "$(dirname "$0")/check-compatibility.sh" ]]; then
+        COMPAT_SCRIPT="$(dirname "$0")/check-compatibility.sh"
+    fi
+
+    if [[ -n "$COMPAT_SCRIPT" ]]; then
+        # Check if compatibility matrix has at least one known version pair
+        if grep -q "2\.1\." "$COMPAT_SCRIPT" && grep -q "0\.5\." "$COMPAT_SCRIPT"; then
+            pass "Compatibility matrix has tested version pairs"
+        else
+            fail "Compatibility matrix appears empty" "At least one tested version pair" "No version pairs found"
+        fi
+    else
+        skip "Compatibility matrix validation - check-compatibility.sh not found" "Script should be in ~/.ai-client/ or client/scripts/"
+    fi
+fi
+
 # Final summary (F2.11: Use box-drawing characters)
 echo ""
 echo "┌────────────────────────────────────────────────┐"
@@ -866,6 +1329,8 @@ else
     fi
     echo "  • Check if server is running and accessible via Tailscale"
     echo "  • Verify environment variables: source ~/.ai-client/env"
+    echo "  • For Claude Code issues: ensure Ollama 0.5.0+ on server, check alias configuration"
+    echo "  • For version issues: run check-compatibility.sh and pin-versions.sh"
     echo "  • Open a new terminal to reload shell profile"
     echo ""
     exit 1

@@ -151,6 +151,22 @@ if [ "$ITER1" -gt 0 ] && [ $((READ1 / ITER1)) -gt $((EDIT1 / ITER1 * 3)) ]; then
 fi
 
 echo ""
+echo -e "${CYAN_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+echo -e "${CYAN_BOLD}Decision Matrix (Ollama Migration Guidance):${RESET}"
+echo -e "${CYAN_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Mode" "Subagents/iter" "Cache hit" "Shallow:Deep" "Recommendation"
+echo "─────────────────────────────────────────────────────────────────────────────────────────────────────────"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Plan (Opus)" "Any" ">50%" "Any" "❌ Keep Anthropic cloud (quality critical)"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Build (Sonnet)" "<10" "<30%" ">5:1" "✅ Consider Ollama for simple builds"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Build (Sonnet)" "<20" "30-60%" "3:1-5:1" "⚠️  Test Ollama carefully"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Build (Sonnet)" "<20" ">60%" "<3:1" "❌ Keep Anthropic (cache-dependent)"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Build (Sonnet)" ">50" "Any" "Any" "❌ Keep Anthropic (parallelism)"
+echo -e "${CYAN_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+echo -e "${YELLOW_BOLD}Key insight:${RESET} Plan mode (Opus) should always use Anthropic cloud for quality."
+echo -e "             Only consider remote Ollama for build mode (Sonnet) after establishing baseline."
+echo ""
+
+echo ""
 echo -e "${CYAN_BOLD}Full reports:${RESET}"
 echo -e "  $RUN1/summary.md"
 echo -e "  $RUN2/summary.md"

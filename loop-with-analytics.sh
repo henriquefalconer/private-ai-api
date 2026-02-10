@@ -503,6 +503,8 @@ echo -e "${GREEN_BOLD}━━━━━━━━━━━━━━━━━━━�
 # Calculate totals across all iterations
 total_subagents=0
 total_reads=0
+total_greps=0
+total_globs=0
 total_edits=0
 total_cache_creation=0
 total_cache_reads=0
@@ -514,6 +516,10 @@ for i in $(seq 1 $CURRENT_ITER); do
         subagents=${subagents:-0}
         reads=$(grep -c '"name":"Read"' "$iter_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
         reads=${reads:-0}
+        greps=$(grep -c '"name":"Grep"' "$iter_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
+        greps=${greps:-0}
+        globs=$(grep -c '"name":"Glob"' "$iter_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
+        globs=${globs:-0}
 
         edit_count=$(grep -c '"name":"Edit"' "$iter_log" 2>/dev/null | head -n 1 | tr -cd '0-9' || echo "0")
         edit_count=${edit_count:-0}
@@ -528,6 +534,8 @@ for i in $(seq 1 $CURRENT_ITER); do
 
         total_subagents=$((total_subagents + subagents))
         total_reads=$((total_reads + reads))
+        total_greps=$((total_greps + greps))
+        total_globs=$((total_globs + globs))
         total_edits=$((total_edits + edits))
         total_cache_creation=$((total_cache_creation + cache_cr))
         total_cache_reads=$((total_cache_reads + cache_rd))
@@ -542,12 +550,25 @@ if [ $CURRENT_ITER -gt 0 ]; then
     avg_reads=$((total_reads / CURRENT_ITER))
 fi
 
+# Calculate shallow and deep totals
+total_shallow=$((total_reads + total_greps + total_globs))
+total_deep=$((total_edits))
+
 echo -e "${CYAN_BOLD}Across ${CURRENT_ITER} iterations:${RESET}"
 echo -e "  ${YELLOW_BOLD}Total subagents spawned: ${total_subagents}${RESET}"
 echo -e "  ${BLUE_BOLD}Average per iteration: ${avg_subagents}${RESET}"
 echo -e ""
 echo -e "  Total file reads: ${total_reads}"
-echo -e "  Total edits/writes: ${total_edits}"
+echo -e "  Total grep searches: ${total_greps}"
+echo -e "  Total glob searches: ${total_globs}"
+echo -e "  ${CYAN_BOLD}Shallow operations (Read+Grep+Glob): ${total_shallow}${RESET}"
+echo -e "  ${CYAN_BOLD}Deep operations (Edit+Write): ${total_deep}${RESET}"
+if [ $total_deep -gt 0 ]; then
+    shallow_deep_ratio=$((total_shallow / total_deep))
+    echo -e "  ${GREEN_BOLD}Shallow:Deep ratio: ${shallow_deep_ratio}:1${RESET}"
+else
+    echo -e "  ${GREEN_BOLD}Shallow:Deep ratio: ${total_shallow}:0 (read-only workload)${RESET}"
+fi
 echo -e "  Average reads per iteration: ${avg_reads}"
 echo -e ""
 echo -e "  Total cache creation: ${total_cache_creation} tokens"
@@ -555,6 +576,8 @@ echo -e "  Total cache reads: ${total_cache_reads} tokens"
 if [ $((total_cache_creation + total_cache_reads)) -gt 0 ]; then
     overall_cache_rate=$((total_cache_reads * 100 / (total_cache_creation + total_cache_reads)))
     echo -e "  ${GREEN_BOLD}Overall cache hit rate: ${overall_cache_rate}%${RESET}"
+else
+    overall_cache_rate=0
 fi
 echo -e ""
 echo -e "${CYAN_BOLD}Full report saved to:${RESET} ${ANALYTICS_DIR}/summary.md"
@@ -567,9 +590,14 @@ cat >> "$SUMMARY_FILE" 2>/dev/null << EOF
 - **Total subagents spawned**: ${total_subagents}
 - **Average subagents per iteration**: ${avg_subagents}
 - **Total file reads**: ${total_reads}
-- **Total edits/writes**: ${total_edits}
+- **Total grep searches**: ${total_greps}
+- **Total glob searches**: ${total_globs}
+- **Shallow operations (Read+Grep+Glob)**: ${total_shallow}
+- **Deep operations (Edit+Write)**: ${total_deep}
+- **Shallow:Deep ratio**: $(if [ $total_deep -gt 0 ]; then echo "$((total_shallow / total_deep)):1"; else echo "${total_shallow}:0 (read-only)"; fi)
 - **Cache creation tokens**: ${total_cache_creation}
 - **Cache read tokens**: ${total_cache_reads}
+- **Overall cache hit rate**: $(if [ $((total_cache_creation + total_cache_reads)) -gt 0 ]; then echo "$((total_cache_reads * 100 / (total_cache_creation + total_cache_reads)))%"; else echo "0%"; fi)
 
 ### Analysis
 
@@ -577,7 +605,7 @@ The actual subagent spawn count was **${avg_subagents} per iteration** (average)
 
 1. **Parallelism is sparse**: Most work is done with ${avg_reads} reads per iteration, not hundreds
 2. **Cache efficiency**: $(if [ $((total_cache_creation + total_cache_reads)) -gt 0 ]; then echo "$((total_cache_reads * 100 / (total_cache_creation + total_cache_reads)))% cache hit rate"; else echo "N/A"; fi)
-3. **Workload is ${total_reads}:${total_edits} read-heavy**: More reconnaissance than modification
+3. **Workload is $(if [ $total_deep -gt 0 ]; then echo "$((total_shallow / total_deep)):1"; else echo "${total_shallow}:0"; fi) shallow:deep**: More reconnaissance (Read/Grep/Glob) than modification (Edit/Write)
 
 ### Implications for Ollama Migration
 
@@ -585,7 +613,108 @@ Based on empirical data:
 - Single Ollama server can handle ${avg_subagents} concurrent subagents
 - Prompt caching provides $(if [ $((total_cache_creation + total_cache_reads)) -gt 0 ]; then echo "$((total_cache_reads * 100 / (total_cache_creation + total_cache_reads)))%"; else echo "N/A"; fi) efficiency gain
 - Shallow operations (reads) dominate the workload (suitable for local models)
+
+### Decision Matrix (Ollama Migration Guidance)
+
+| Mode | Subagents/iter | Cache hit | Shallow:Deep | Recommendation |
+|------|----------------|-----------|--------------|----------------|
+| **Plan (Opus)** | Any | >50% | Any | ❌ Keep Anthropic cloud (quality critical) |
+| **Build (Sonnet)** | <10 | <30% | >5:1 | ✅ Consider Ollama for simple builds |
+| **Build (Sonnet)** | <20 | 30-60% | 3:1-5:1 | ⚠️ Test Ollama carefully |
+| **Build (Sonnet)** | <20 | >60% | <3:1 | ❌ Keep Anthropic (cache-dependent) |
+| **Build (Sonnet)** | >50 | Any | Any | ❌ Keep Anthropic (parallelism) |
+
+**Key insight**: Plan mode (Opus) should always use Anthropic cloud for quality. Only consider remote Ollama for build mode (Sonnet) after establishing baseline.
+
+### Your Run Analysis
+
+- **Mode**: ${MODE}
+- **Avg subagents/iter**: ${avg_subagents}
+- **Overall cache hit rate**: $(if [ $((total_cache_creation + total_cache_reads)) -gt 0 ]; then echo "$((total_cache_reads * 100 / (total_cache_creation + total_cache_reads)))%"; else echo "0%"; fi)
+- **Shallow:Deep ratio**: $(if [ $total_deep -gt 0 ]; then echo "$((total_shallow / total_deep)):1"; else echo "${total_shallow}:0 (read-only)"; fi)
+
 EOF
+
+# Determine recommendation for current run
+if [ "$MODE" = "plan" ]; then
+    cat >> "$SUMMARY_FILE" 2>/dev/null << 'EOF'
+**Recommendation**: ❌ Keep Anthropic cloud - Plan mode (Opus) requires quality, not suitable for Ollama
+EOF
+elif [ $avg_subagents -gt 50 ]; then
+    cat >> "$SUMMARY_FILE" 2>/dev/null << 'EOF'
+**Recommendation**: ❌ Keep Anthropic cloud - High parallelism requires distributed infrastructure
+EOF
+elif [ $((total_cache_creation + total_cache_reads)) -gt 0 ] && [ $overall_cache_rate -gt 60 ]; then
+    cat >> "$SUMMARY_FILE" 2>/dev/null << 'EOF'
+**Recommendation**: ❌ Keep Anthropic cloud - High cache dependency (Ollama lacks caching)
+EOF
+elif [ $total_deep -gt 0 ] && [ $overall_cache_rate -lt 30 ] && [ $avg_subagents -lt 10 ] && [ $((total_shallow / total_deep)) -gt 5 ]; then
+    cat >> "$SUMMARY_FILE" 2>/dev/null << 'EOF'
+**Recommendation**: ✅ Consider Ollama - Low cache dependency, modest parallelism, read-heavy workload
+EOF
+elif [ $avg_subagents -lt 20 ] && [ $overall_cache_rate -ge 30 ] && [ $overall_cache_rate -le 60 ]; then
+    cat >> "$SUMMARY_FILE" 2>/dev/null << 'EOF'
+**Recommendation**: ⚠️ Test Ollama carefully - Mixed signals, empirical testing required
+EOF
+else
+    cat >> "$SUMMARY_FILE" 2>/dev/null << 'EOF'
+**Recommendation**: ⚠️ Test Ollama carefully - Metrics suggest caution, validate with real workload
+EOF
+fi
+
+# Display decision matrix in terminal
+echo ""
+echo -e "${CYAN_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+echo -e "${CYAN_BOLD}Decision Matrix (Ollama Migration Guidance):${RESET}"
+echo -e "${CYAN_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Mode" "Subagents/iter" "Cache hit" "Shallow:Deep" "Recommendation"
+echo "─────────────────────────────────────────────────────────────────────────────────────────────────────────"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Plan (Opus)" "Any" ">50%" "Any" "❌ Keep Anthropic cloud (quality critical)"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Build (Sonnet)" "<10" "<30%" ">5:1" "✅ Consider Ollama for simple builds"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Build (Sonnet)" "<20" "30-60%" "3:1-5:1" "⚠️  Test Ollama carefully"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Build (Sonnet)" "<20" ">60%" "<3:1" "❌ Keep Anthropic (cache-dependent)"
+printf "%-18s %-16s %-12s %-14s %-50s\n" "Build (Sonnet)" ">50" "Any" "Any" "❌ Keep Anthropic (parallelism)"
+echo -e "${CYAN_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+echo -e "${YELLOW_BOLD}Key insight:${RESET} Plan mode (Opus) should always use Anthropic cloud for quality."
+echo -e "             Only consider remote Ollama for build mode (Sonnet) after establishing baseline."
+echo ""
+
+# Display this run's analysis
+echo -e "${GREEN_BOLD}Your Run Analysis:${RESET}"
+echo -e "  Mode: ${YELLOW_BOLD}${MODE}${RESET}"
+echo -e "  Avg subagents/iter: ${YELLOW_BOLD}${avg_subagents}${RESET}"
+if [ $((total_cache_creation + total_cache_reads)) -gt 0 ]; then
+    echo -e "  Overall cache hit rate: ${YELLOW_BOLD}${overall_cache_rate}%${RESET}"
+else
+    echo -e "  Overall cache hit rate: ${YELLOW_BOLD}0%${RESET}"
+fi
+if [ $total_deep -gt 0 ]; then
+    echo -e "  Shallow:Deep ratio: ${YELLOW_BOLD}$((total_shallow / total_deep)):1${RESET}"
+else
+    echo -e "  Shallow:Deep ratio: ${YELLOW_BOLD}${total_shallow}:0 (read-only)${RESET}"
+fi
+echo ""
+
+# Display recommendation for current run
+if [ "$MODE" = "plan" ]; then
+    echo -e "  ${RED_BOLD}❌ Recommendation: Keep Anthropic cloud${RESET}"
+    echo -e "     Plan mode (Opus) requires quality - not suitable for Ollama"
+elif [ $avg_subagents -gt 50 ]; then
+    echo -e "  ${RED_BOLD}❌ Recommendation: Keep Anthropic cloud${RESET}"
+    echo -e "     High parallelism (${avg_subagents} subagents) - single Ollama server insufficient"
+elif [ $((total_cache_creation + total_cache_reads)) -gt 0 ] && [ $overall_cache_rate -gt 60 ]; then
+    echo -e "  ${RED_BOLD}❌ Recommendation: Keep Anthropic cloud${RESET}"
+    echo -e "     High cache dependency (${overall_cache_rate}%) - Ollama lacks caching"
+elif [ $total_deep -gt 0 ] && [ $overall_cache_rate -lt 30 ] && [ $avg_subagents -lt 10 ] && [ $((total_shallow / total_deep)) -gt 5 ]; then
+    echo -e "  ${GREEN_BOLD}✅ Recommendation: Consider Ollama for simple builds${RESET}"
+    echo -e "     Low cache dependency, modest parallelism, read-heavy workload"
+elif [ $avg_subagents -lt 20 ] && [ $overall_cache_rate -ge 30 ] && [ $overall_cache_rate -le 60 ]; then
+    echo -e "  ${YELLOW_BOLD}⚠️  Recommendation: Test Ollama carefully${RESET}"
+    echo -e "     Mixed signals - empirical testing required"
+else
+    echo -e "  ${YELLOW_BOLD}⚠️  Recommendation: Test Ollama carefully${RESET}"
+    echo -e "     Metrics suggest caution - validate with real workload"
+fi
 
 echo -e "\n${GREEN_BOLD}Loop finished${RESET}"
 echo -e "${CYAN_BOLD}Analytics saved to: ${ANALYTICS_DIR}${RESET}\n"

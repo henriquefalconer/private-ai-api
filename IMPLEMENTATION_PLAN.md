@@ -8,7 +8,7 @@
 **Last Updated**: 2026-02-10
 **Current Version**: v0.0.4
 
-v1 (Aider/OpenAI API) is complete and tested on hardware. v2+ (Claude Code/Anthropic API, version management, analytics) has documentation foundations done; core implementation in progress. Latest: server Anthropic tests + progress tracking implemented; client Claude Code installation with optional Ollama integration complete; version management complete (compatibility check, version pinning, downgrade script); client uninstall v2+ cleanup complete; analytics bug fixes complete (H3-1). **Phase 2 complete (6/6 items). Phase 3 complete (3/3 items). Phase 4: 1 done, 6 remaining**.
+v1 (Aider/OpenAI API) is complete and tested on hardware. v2+ (Claude Code/Anthropic API, version management, analytics) has documentation foundations done; core implementation in progress. Latest: server Anthropic tests + progress tracking implemented; client Claude Code installation with optional Ollama integration complete; version management complete (compatibility check, version pinning, downgrade script); client uninstall v2+ cleanup complete; analytics bug fixes complete (H3-1); client v2+ tests added (H2-5); analytics decision matrix implemented (H3-6); client SETUP.md updated with v2+ documentation (H3-5). **Phase 2 complete (6/6 items). Phase 3 complete (3/3 items). Phase 4: 4 done, 3 remaining**.
 
 ---
 
@@ -20,7 +20,7 @@ All 8 scripts delivered (server: 4, client: 3 + env.template). 48 tests passing 
 
 ### v2+ Implementation - IN PROGRESS
 
-Phase 1 (documentation foundations) complete: 7/22 items done. **Phase 2: COMPLETE (6/6 items done)** - H1-3, H1-4, H1-6, H2-1, H2-2, H4-4. Server Anthropic tests, client Claude Code installation, version compatibility checking, version pinning, and progress tracking all implemented. **Phase 3: COMPLETE (3/3 items done)** - H2-3, H2-4 complete. **Phase 4: 1 done, 6 remaining** - H3-1 complete (analytics bug fixes), 6 items remain (H2-5, H3-6, H3-2, H3-3, H3-5, H4-3).
+Phase 1 (documentation foundations) complete: 7/22 items done. **Phase 2: COMPLETE (6/6 items done)** - H1-3, H1-4, H1-6, H2-1, H2-2, H4-4. Server Anthropic tests, client Claude Code installation, version compatibility checking, version pinning, and progress tracking all implemented. **Phase 3: COMPLETE (3/3 items done)** - H2-3, H2-4 complete. **Phase 4: 4 done, 3 remaining** - H3-1 (analytics bug fixes), H2-5 (client v2+ tests), H3-6 (analytics decision matrix), H3-5 (client SETUP.md v2+ docs) all complete. 3 items remain (H3-2, H3-3, H4-3).
 
 ---
 
@@ -34,18 +34,19 @@ All Phase 2 items completed: H1-3 (Anthropic tests), H1-4 (Claude Code install),
 
 All Phase 3 items completed: H2-3 (downgrade script), H2-4 (uninstall v2+ cleanup), and preparation work that unblocked H2-5. See "Completed This Session" section below for H2-4 details.
 
-### Phase 4: Validation and Polish (6 items remaining)
+### Phase 4: Validation and Polish (3 items remaining)
 
 | ID | Task | Priority | Effort | Target Files | Dependencies |
 |----|------|----------|--------|-------------|-------------|
-| H2-5 | Add v2+ tests to client test.sh (8-10 tests: Claude Code binary, alias, `/v1/messages` connectivity, version scripts, `.version-lock` format). Add `--skip-claude`, `--v1-only`, `--v2-only` flags. | H2 | Medium | `client/scripts/test.sh` | H1-3, H1-4, H2-1, H2-2, H2-3, H2-4 (ALL DONE) |
-| H3-6 | Implement decision matrix output per `client/specs/ANALYTICS.md` lines 474-485. Neither analytics script outputs this. | H3 | Medium | `loop-with-analytics.sh`, `compare-analytics.sh` | None |
-| H3-2 | Hardware testing: run all tests with `--verbose` on Apple Silicon server, manual Claude Code + Ollama validation, version management script testing. | H3 | Large | Manual | All H1 + H2 items |
+| H3-2 | Hardware testing: run all tests with `--verbose` on Apple Silicon server, manual Claude Code + Ollama validation, version management script testing. | H3 | Large | Manual | All H1 + H2 items (ALL DONE) |
 | H3-3 | Update `server/README.md`: new test count, Anthropic test sample output, `--skip-anthropic-tests` flag docs. | H3 | Trivial | `server/README.md` | H1-3, H3-2 |
-| H3-5 | Update `client/SETUP.md`: Claude Code integration section, version management quick-start, analytics overview. | H3 | Small | `client/SETUP.md` | H1-4, H2-1, H2-2, H2-3, H2-4 (ALL DONE) |
-| H4-3 | Auto-resolved when H2-1 is created (stale reference in `ANALYTICS_README.md`). | H4 | None | N/A | H2-1 |
+| H4-3 | Auto-resolved when H2-1 is created (stale reference in `ANALYTICS_README.md`). | H4 | None | N/A | H2-1 (DONE) |
 
-**Bundling**: H3-1 (COMPLETE) + H3-6 (PENDING) were bundled together as related analytics work.
+**Completed from Phase 4**:
+- ✓ H3-1 - Analytics bug fixes (divide-by-zero errors, cache hit rate formula)
+- ✓ H2-5 - Client v2+ tests added to test.sh (12 new tests, 3 new flags)
+- ✓ H3-6 - Analytics decision matrix implementation
+- ✓ H3-5 - Client SETUP.md updated with v2+ documentation
 
 ---
 
@@ -61,24 +62,24 @@ Phase 3: COMPLETE (all 3 items done)
   (H2-5 moved to Phase 4 as it's a test/validation task)
 
 Phase 4 (validation and polish):
-  H2-5 ─────────── UNBLOCKED (all dependencies complete)
   ✓ H3-1 ───────── DONE (analytics bug fixes)
-  H3-6 ─────────── no blockers (can start anytime)
-  H3-2 ─────────── depends on H2-5 completion
+  ✓ H2-5 ───────── DONE (client v2+ tests)
+  ✓ H3-6 ───────── DONE (analytics decision matrix)
+  ✓ H3-5 ───────── DONE (client SETUP.md v2+ docs)
+  H3-2 ─────────── UNBLOCKED (hardware testing, all dependencies complete)
   H3-3 ─────────── needs H3-2
-  H3-5 ─────────── UNBLOCKED (all dependencies complete)
   H4-3 ─────────── auto-resolved (H2-1 complete)
 ```
 
 ## Recommended Execution Order
 
-**Batch 1** (parallel, all unblocked):
-1. H2-5 -- Client v2+ tests
-2. H3-6 -- Analytics decision matrix (H3-1 complete)
-3. H3-5 -- Client SETUP update
+**Batch 1** (COMPLETE):
+1. ✓ H2-5 -- Client v2+ tests
+2. ✓ H3-6 -- Analytics decision matrix
+3. ✓ H3-5 -- Client SETUP update
 
-**Batch 2** (after H2-5):
-4. H3-2 -- Hardware testing
+**Batch 2** (ready to start):
+4. H3-2 -- Hardware testing (all dependencies complete)
 
 **Batch 3** (after Batch 2):
 5. H3-3 -- Server README update
@@ -94,14 +95,15 @@ Phase 4 (validation and polish):
 | ~~Version management (all scripts)~~ | ~~H2-1, H2-2, H2-3~~ | ~~DONE~~ |
 | ~~Client uninstall.sh (v2+ cleanup)~~ | ~~H2-4~~ | ~~DONE~~ |
 | ~~Analytics bug fixes~~ | ~~H3-1~~ | ~~DONE~~ |
-| Client test.sh (v2+ tests) | H2-5 | Medium |
-| Analytics decision matrix | H3-6 | Medium |
+| ~~Client test.sh (v2+ tests)~~ | ~~H2-5~~ | ~~DONE~~ |
+| ~~Analytics decision matrix~~ | ~~H3-6~~ | ~~DONE~~ |
+| ~~Client SETUP.md (v2+ docs)~~ | ~~H3-5~~ | ~~DONE~~ |
 | Hardware testing | H3-2 | Large |
-| Documentation updates | H3-3, H3-5 | Small |
+| Server README update | H3-3 | Small |
 
 **New files**: 0 remaining (all created)
-**Modified files**: ~1 existing file
-**Estimated total**: Less than 1 day + hardware testing session
+**Modified files**: 0 remaining (all updated)
+**Estimated total**: 1 hardware testing session
 
 ---
 
@@ -227,7 +229,93 @@ Phase 4 (validation and polish):
 - All fixes comply with analytics specification requirements
 - Scripts now handle edge cases (zero iterations, zero tokens) gracefully
 
-**Impact**: Client installation now supports optional Claude Code integration with proper user consent, clear messaging, idempotent alias creation, and accurate env template documentation. Server test suite comprehensively validates both OpenAI and Anthropic API surfaces with proper progress tracking. Complete version management workflow: users can check compatibility, pin working versions, and downgrade to known-good configurations when upgrades break compatibility. Client uninstallation now properly cleans up both v1 environment sourcing and v2+ Claude Code aliases from shell profiles. Analytics scripts are now robust against divide-by-zero errors and correctly calculate cache hit rates per specification.
+### H2-5: Client v2+ Tests Added to test.sh
+**File**: `client/scripts/test.sh`
+- Added 12 new v2+ tests (tests 29-40) covering Claude Code and version management:
+  1. Claude Code binary installation check
+  2. `claude-ollama` shell alias functionality
+  3. Anthropic `/v1/messages` non-streaming endpoint
+  4. Anthropic `/v1/messages` streaming SSE
+  5. `check-compatibility.sh` exit codes and output validation
+  6. `pin-versions.sh` creates `.version-lock` file correctly
+  7. `downgrade-claude.sh` validates version lock file
+  8. `.version-lock` format compliance (8 required fields)
+  9. `.version-lock` STATUS field validation (must be "working")
+  10. `claude-ollama` alias markers in shell profiles
+  11. Anthropic API error handling (400/404)
+  12. Version management script executability
+- Added 3 new command-line flags:
+  - `--skip-claude`: Skip all v2+ Claude Code tests
+  - `--v1-only`: Run only v1 (Aider/OpenAI) tests
+  - `--v2-only`: Run only v2+ (Claude Code/Anthropic) tests
+- Updated `TOTAL_TESTS` from 28 to 40
+- Updated help text with new flag descriptions
+- Updated final summary section to display correct test count range
+- Comprehensive coverage of client v2+ functionality per specifications
+
+### H3-6: Analytics Decision Matrix Implemented
+**Files**: `client/scripts/loop-with-analytics.sh`, `client/scripts/compare-analytics.sh`
+- Added decision matrix table to `loop-with-analytics.sh` terminal output:
+  - Displays shallow:deep ratio and interpretation
+  - Shows dynamic recommendation based on current run metrics
+  - Color-coded guidance (green=optimal, yellow=warning, red=problematic)
+- Added decision matrix to `loop-with-analytics.sh` markdown output:
+  - Same table format in analytics JSON metadata
+  - Persistent record of decision rationale
+- Added decision matrix to `compare-analytics.sh` output:
+  - Shows ratio comparison between two analytics runs
+  - Helps evaluate if changes improved operation balance
+- Enhanced shallow operations tracking:
+  - Added Grep and Glob to shallow operation list
+  - Complements existing Read, Edit, Write tracking
+- Implemented shallow:deep ratio calculation:
+  - Formula: `shallow_ops / deep_ops`
+  - Handles edge cases (zero deep operations)
+- Dynamic recommendation logic per `client/specs/ANALYTICS.md` lines 474-485:
+  - Ratio < 2: "Needs more shallow operations (Grep/Glob/Read) before deep dives"
+  - Ratio 2-10: "Good balance of exploration and implementation"
+  - Ratio > 10: "Too much exploration, consider implementing based on findings"
+- Full compliance with analytics specification decision matrix requirements
+
+### H3-5: Client SETUP.md Updated with v2+ Documentation
+**File**: `client/SETUP.md`
+- Added "Extended Installation with Claude Code (v2+)" section:
+  - Explains optional Claude Code setup during installation
+  - Documents `claude-ollama` alias creation and usage
+  - Clarifies Anthropic cloud default vs. Ollama alternative
+- Updated "What the installer does" section:
+  - Added mention of optional Claude Code setup step
+  - Documented shell alias marker system
+- Added "Verify Claude Code installation (v2+)" post-installation section:
+  - Commands to test `claude-ollama` alias
+  - Verification steps for Anthropic API connectivity
+- Restructured Usage section with v1/v2+ subsections:
+  - "Using Aider (v1)": Original Aider workflow unchanged
+  - "Using Claude Code (v2+)": New section with `claude-ollama` examples
+- Added comprehensive "Version Management (v2+)" section:
+  - Quick start guide with all three version management scripts
+  - Workflow: check compatibility → test changes → pin versions → downgrade if needed
+  - Documentation of `.version-lock` file format and purpose
+  - Links to full specification
+- Added "Analytics and Performance Measurement (v2+)" section:
+  - Two-phase workflow: benchmark first, measure changes second
+  - Command examples for both analytics scripts
+  - Decision matrix explanation with shallow:deep ratio guidance
+  - Links to full analytics specification
+- Expanded Troubleshooting with 5 new v2+ subsections:
+  1. Claude Code doesn't use Ollama (checks alias, env vars, server connectivity)
+  2. Version incompatibility detected (run compatibility check and pin/downgrade)
+  3. Analytics shows divide-by-zero errors (upgrade check, zero iteration handling)
+  4. Version lock file is missing/corrupted (re-pin versions)
+  5. Claude Code upgrade broke things (downgrade workflow)
+- Updated test suite documentation:
+  - New test count: 40 total tests (28 v1 + 12 v2+)
+  - Documented all three new test flags (`--skip-claude`, `--v1-only`, `--v2-only`)
+- Updated final note section:
+  - Emphasized v2+ two-phase analytics workflow for informed decisions
+  - Added links to Claude Code, Version Management, and Analytics specifications
+
+**Impact**: Client installation now supports optional Claude Code integration with proper user consent, clear messaging, idempotent alias creation, and accurate env template documentation. Server test suite comprehensively validates both OpenAI and Anthropic API surfaces with proper progress tracking. Complete version management workflow: users can check compatibility, pin working versions, and downgrade to known-good configurations when upgrades break compatibility. Client uninstallation now properly cleans up both v1 environment sourcing and v2+ Claude Code aliases from shell profiles. Analytics scripts are now robust against divide-by-zero errors and correctly calculate cache hit rates per specification. Client test suite validates all v2+ functionality with 12 new tests and flexible filtering flags. Analytics decision matrix provides actionable guidance on operation balance with shallow:deep ratio tracking. Client SETUP.md now comprehensively documents the complete v2+ user experience including installation, usage, version management, analytics workflow, and troubleshooting.
 
 ---
 
