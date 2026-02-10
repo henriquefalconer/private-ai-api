@@ -73,7 +73,15 @@ ARCH="$(uname -m)"
 if [[ "$ARCH" != "arm64" ]]; then
     fatal "This script requires Apple Silicon (arm64). Detected: $ARCH"
 fi
+
+# Validate shell (zsh or bash)
+USER_SHELL=$(basename "$SHELL")
+if [[ "$USER_SHELL" != "zsh" && "$USER_SHELL" != "bash" ]]; then
+    fatal "This script requires zsh or bash shell. Detected: $USER_SHELL"
+fi
+
 info "✓ macOS $MACOS_VERSION with Apple Silicon detected"
+info "✓ Shell: $USER_SHELL"
 
 # Step 2: Check for Homebrew
 info "Checking for Homebrew..."
