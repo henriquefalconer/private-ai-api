@@ -40,7 +40,7 @@ See [server/README.md](server/README.md) for detailed server installation and co
 ### Client Setup
 See [client/README.md](client/README.md) for client installation and usage.
 
-## Supported Tools
+## Supported Tools in Client
 
 ### Aider (v1)
 - Uses OpenAI-compatible API (`/v1/chat/completions`)
