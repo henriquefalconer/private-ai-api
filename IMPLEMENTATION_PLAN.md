@@ -6,144 +6,190 @@
 # Implementation Plan
 
 **Last Updated**: 2026-02-11
-**Current Version**: v0.0.18
 
 ---
 
 ## Current Status
 
-### Client Implementation - COMPLETE
+**Client**: Fully spec-compliant. All 6 scripts, env.template, and SETUP.md match specs. 40 tests passing. One documentation-only gap (README.md still says v2+ is "planned").
 
-All 9 client specs fully implemented: 6 scripts + env.template + documentation. 40 tests in client test suite. v1 (Aider/OpenAI) and v2+ (Claude Code/Anthropic, version management, analytics) all operational. Bug fixes from hardware testing applied (timing, JSON parsing, macOS timeout, install.sh undefined function).
+**Root Analytics**: Fully spec-compliant. loop.sh, loop-with-analytics.sh, compare-analytics.sh, and ANALYTICS_README.md all match ANALYTICS.md spec.
 
-### Server Implementation - PARTIAL (HAProxy proxy layer missing)
+**Server**: Partially implemented. Ollama API surface works (OpenAI + Anthropic endpoints, 26 tests). **Major gap**: The HAProxy proxy layer specified in ARCHITECTURE.md, SECURITY.md, INTERFACES.md, FILES.md, and FUNCTIONALITIES.md is entirely missing. Ollama binds to `0.0.0.0` (all interfaces) instead of the specified `127.0.0.1` (loopback only).
 
-v1 API surface works (Ollama serves OpenAI + Anthropic endpoints). 26 tests in server test suite. **Critical gap**: The three-layer architecture specified across 6+ specs (ARCHITECTURE, SECURITY, INTERFACES, FILES, FUNCTIONALITIES, SCRIPTS) is not implemented. HAProxy is completely absent from all server scripts. Ollama binds to `0.0.0.0` instead of `127.0.0.1`.
+**Architecture gap**:
+```
+Current:   Client → Tailscale → Ollama (0.0.0.0:11434)
+Specified: Client → Tailscale → HAProxy (100.x.x.x:11434) → Ollama (127.0.0.1:11434)
+```
 
 ---
 
-## Remaining Tasks (Priority Order)
+## Remaining Tasks
 
-### Phase 5: Server HAProxy Proxy Layer
+### P1: Align SCRIPTS.md Spec with Security Architecture
 
-The server specs define a three-layer security architecture:
-```
-Client → Tailscale → HAProxy (100.x.x.x:11434) → Ollama (127.0.0.1:11434)
-```
+**File**: `server/specs/SCRIPTS.md`
+**Effort**: Small
+**Dependencies**: None (gates all P2 tasks)
 
-Current implementation bypasses HAProxy entirely:
-```
-Client → Tailscale → Ollama (0.0.0.0:11434)
-```
+SCRIPTS.md says `OLLAMA_HOST=0.0.0.0` in 3 places (install.sh spec, Security Tests, No config files section). All 5 other spec files consistently specify `127.0.0.1`. Align SCRIPTS.md with the security architecture:
 
-This is documented in ARCHITECTURE.md, SECURITY.md, INTERFACES.md, FILES.md, FUNCTIONALITIES.md, and partially in SCRIPTS.md. The specs are clear and consistent (except SCRIPTS.md line 34 which matches the current implementation rather than the architectural spec).
+- Change `OLLAMA_HOST=0.0.0.0` to `OLLAMA_HOST=127.0.0.1` throughout
+- Add HAProxy installation section (consent prompt, Homebrew install, config generation, plist creation, service loading)
+- Add HAProxy uninstallation section (stop service, remove plist, delete config dir, clean logs)
+- Add HAProxy test specifications (service loaded, Tailscale interface listening, allowlist enforcement, direct Ollama access blocked)
+- Update Security Tests section to verify loopback binding instead of all-interfaces binding
+- Update "No config files" section to reflect HAProxy config existence
 
-| # | Task | Priority | Effort | Target Files | Details |
-|---|------|----------|--------|--------------|---------|
-| 1 | **Resolve SCRIPTS.md spec inconsistency** | H1 | Small | `server/specs/SCRIPTS.md` | Line 34 says `OLLAMA_HOST=0.0.0.0`; all other specs say `127.0.0.1`. Align SCRIPTS.md with ARCHITECTURE.md (update to `127.0.0.1` + add HAProxy install section) or align all other specs with current implementation. This decision gates all subsequent work. |
-| 2 | **Add HAProxy installation to install.sh** | H1 | Large | `server/scripts/install.sh` | Per FUNCTIONALITIES.md lines 147-159: Install HAProxy via Homebrew (with user consent prompt per lines 160-184), create `~/.haproxy/haproxy.cfg` with endpoint allowlist (per FILES.md lines 48-83), create `com.haproxy.plist` LaunchAgent (per FILES.md lines 39-46), change `OLLAMA_HOST` from `0.0.0.0` to `127.0.0.1`, load both services, verify proxy forwarding. |
-| 3 | **Add HAProxy cleanup to uninstall.sh** | H1 | Small | `server/scripts/uninstall.sh` | Per FILES.md lines 185-195: Stop and remove `com.haproxy.plist`, delete `~/.haproxy/` directory, clean up `/tmp/haproxy.log`. |
-| 4 | **Update test.sh for proxy architecture** | H2 | Medium | `server/scripts/test.sh` | Per FUNCTIONALITIES.md lines 213-224: Change Test 17 to verify `OLLAMA_HOST=127.0.0.1` (not `0.0.0.0`). Change Test 18 to verify loopback-only binding. Add HAProxy-specific tests: HAProxy service loaded, HAProxy listening on Tailscale interface, endpoint allowlist enforcement (blocked paths return 403/404), Ollama unreachable directly from Tailscale IP. |
-| 5 | **Update server README.md and SETUP.md** | H3 | Small | `server/README.md`, `server/SETUP.md` | Ensure documentation matches actual implementation after HAProxy is added. README.md already references HAProxy (written for the spec), so minimal changes expected. |
+### P2: Implement HAProxy in Server Scripts
 
-### Phase 6: Documentation Gaps
+Three script changes, ordered by dependency. Refer to specs for exact requirements.
 
-| # | Task | Priority | Effort | Target Files | Details |
-|---|------|----------|--------|--------------|---------|
-| 6 | **Update client/README.md** | H3 | Small | `client/README.md` | Lines 3, 8, 10, 21-24 say v2+ is "planned" / "not yet implemented" but it IS implemented. Update to reflect current reality. |
-| 7 | **Add root-level scripts to client/specs/SCRIPTS.md** | H4 | Small | `client/specs/SCRIPTS.md` | Formally specify `loop.sh`, `loop-with-analytics.sh`, and `compare-analytics.sh` (documented elsewhere but missing from SCRIPTS.md spec). |
+#### P2a: Add HAProxy to install.sh
 
-### Phase 7: Hardware Validation
+**File**: `server/scripts/install.sh`
+**Effort**: Large
+**Dependencies**: P1
 
-| # | Task | Priority | Effort | Target Files | Details |
-|---|------|----------|--------|--------------|---------|
-| 8 | **Hardware testing re-run** | H3 | Medium | Manual | Run server tests with `--verbose` on Apple Silicon, manual Claude Code + Ollama validation, test version management scripts, run client tests. All script bugs have been fixed. Expected: 25/26 server, 31+/40 client tests pass. |
+Implement the HAProxy installation flow per FUNCTIONALITIES.md and FILES.md:
+
+1. **User consent prompt** — "Install HAProxy proxy? (Y/n)" with benefits/tradeoffs explanation. Default: Yes.
+2. **HAProxy installation** — `brew install haproxy` (with Homebrew noise suppression)
+3. **Config generation** — Create `~/.haproxy/haproxy.cfg` with:
+   - Frontend listening on Tailscale interface (`100.x.x.x:11434`, detected via `tailscale ip -4`)
+   - Backend forwarding to `127.0.0.1:11434`
+   - Endpoint allowlist (see FILES.md for exact paths: OpenAI, Anthropic, and safe Ollama native endpoints)
+   - Default deny for all other paths
+4. **Plist creation** — Create `~/Library/LaunchAgents/com.haproxy.plist` with RunAtLoad, KeepAlive
+5. **Ollama binding change** — Set `OLLAMA_HOST=127.0.0.1` in Ollama plist (currently `0.0.0.0`)
+6. **Service loading** — Load both LaunchAgents via `launchctl bootstrap`
+7. **Verification** — Confirm HAProxy listening on Tailscale interface, Ollama on loopback only, proxy forwarding works
+
+If user declines HAProxy, fall back to current behavior (`OLLAMA_HOST=0.0.0.0`, no proxy).
+
+#### P2b: Add HAProxy Cleanup to uninstall.sh
+
+**File**: `server/scripts/uninstall.sh`
+**Effort**: Small
+**Dependencies**: P1
+
+Add 3 missing cleanup operations per FILES.md:
+
+1. Stop and remove `~/Library/LaunchAgents/com.haproxy.plist` via `launchctl bootout`
+2. Delete `~/.haproxy/` directory (contains haproxy.cfg)
+3. Clean up `/tmp/haproxy.log`
+
+Handle gracefully if HAProxy was never installed (no errors on missing files).
+
+#### P2c: Add HAProxy Tests to test.sh
+
+**File**: `server/scripts/test.sh`
+**Effort**: Medium
+**Dependencies**: P2a
+
+Update existing tests and add new HAProxy-specific tests per FUNCTIONALITIES.md:
+
+**Modify existing tests**:
+- Update binding verification to check `OLLAMA_HOST=127.0.0.1` (currently checks `0.0.0.0`)
+- Update network test to verify loopback-only binding via `lsof`
+
+**Add new tests**:
+- HAProxy LaunchAgent loaded (`launchctl list | grep com.haproxy`)
+- HAProxy listening on Tailscale interface
+- Endpoint allowlist enforcement: blocked paths (e.g., `/api/pull`, `/api/delete`) return 403 or connection refused
+- Direct Ollama access from Tailscale IP blocked (loopback isolation verified)
+
+Skip HAProxy tests gracefully if HAProxy was not installed (user declined during install).
+
+### P3: Documentation Updates
+
+#### P3a: Update client/README.md
+
+**File**: `client/README.md`
+**Effort**: Small
+**Dependencies**: None
+
+Multiple sections describe v2+ (Claude Code, Anthropic API, version management, analytics) as "planned" or "not yet implemented." All v2+ features are fully implemented and tested. Update to reflect current reality.
+
+#### P3b: Add Root-Level Scripts to client/specs/SCRIPTS.md
+
+**File**: `client/specs/SCRIPTS.md`
+**Effort**: Small
+**Dependencies**: None
+
+Formally specify `loop.sh`, `loop-with-analytics.sh`, and `compare-analytics.sh`. These are already implemented and documented in ANALYTICS_README.md per the ANALYTICS.md spec, but not mentioned in the SCRIPTS.md spec.
+
+#### P3c: Update Server Documentation Post-HAProxy
+
+**Files**: `server/README.md`, `server/SETUP.md`
+**Effort**: Small
+**Dependencies**: P2a
+
+Both files already describe the HAProxy architecture (written for the spec). After implementation, verify documentation accuracy and update test counts if new HAProxy tests changed totals.
+
+### P4: Hardware Validation
+
+**Effort**: Medium
+**Dependencies**: P2a, P2c (for HAProxy tests); independent for existing tests
+
+Run full test suites on Apple Silicon server hardware:
+
+1. Server tests (`server/scripts/test.sh --verbose`) — including new HAProxy tests
+2. Client tests (`client/scripts/test.sh --verbose`)
+3. Manual Claude Code + Ollama integration validation
+4. Version management script validation (check-compatibility.sh, pin-versions.sh, downgrade-claude.sh)
+5. Analytics infrastructure validation (loop-with-analytics.sh, compare-analytics.sh)
+
+All bug fixes from previous sessions are applied. Expecting clean test runs.
 
 ---
 
 ## Dependency Graph
 
 ```
-Phase 5 (HAProxy proxy layer):
-  #1 (spec resolution) ─── gates all below
-    ├── #2 (install.sh HAProxy) ─── requires #1
-    ├── #3 (uninstall.sh cleanup) ─── requires #1
-    └── #4 (test.sh updates) ─── requires #2
-  #5 (docs update) ─── requires #2
+P1 (SCRIPTS.md spec alignment)
+ ├── P2a (install.sh HAProxy) ─── requires P1
+ │    ├── P2c (test.sh HAProxy tests) ─── requires P2a
+ │    └── P3c (server docs update) ─── requires P2a
+ └── P2b (uninstall.sh cleanup) ─── requires P1
 
-Phase 6 (documentation, independent):
-  #6 (client README) ─── no dependencies
-  #7 (SCRIPTS.md spec) ─── no dependencies
+P3a (client README) ─── independent
+P3b (client SCRIPTS.md spec) ─── independent
 
-Phase 7 (validation):
-  #8 (hardware testing) ─── requires #2, #4
+P4 (hardware validation) ─── requires P2a, P2c
 ```
 
----
-
-## Effort Summary
-
-| Category | Items | Effort |
-|----------|-------|--------|
-| Spec resolution (SCRIPTS.md inconsistency) | #1 | Small |
-| Server install.sh (HAProxy + loopback) | #2 | Large |
-| Server uninstall.sh (HAProxy cleanup) | #3 | Small |
-| Server test.sh (proxy architecture tests) | #4 | Medium |
-| Server documentation updates | #5 | Small |
-| Client README.md (outdated v2+ status) | #6 | Small |
-| Client SCRIPTS.md (root-level scripts spec) | #7 | Small |
-| Hardware testing re-run | #8 | Medium (requires physical access) |
+**Suggested execution order**: P1 → P2a → P2b + P2c (parallel) → P3c → P4. P3a and P3b can run anytime.
 
 ---
 
 ## Implementation Constraints
 
-1. **Security**: Tailscale-only network. No public exposure. No built-in auth.
-2. **API contract**: `client/specs/API_CONTRACT.md` is the single source of truth for server-client interface.
+1. **Security**: Tailscale-only network. No public exposure. No built-in authentication.
+2. **API contract**: `client/specs/API_CONTRACT.md` is the single source of truth for the server-client interface.
 3. **Idempotency**: All scripts must be safe to re-run without side effects.
-4. **No stubs**: Implement completely or not at all. No TODO/FIXME/HACK in production code.
-5. **Claude Code integration is optional**: Always prompt for user consent. Anthropic cloud is default; Ollama is an alternative.
-6. **curl-pipe install**: Client `install.sh` must work when executed via `curl | bash`.
-7. **HAProxy is optional but recommended**: User consent prompt required per FUNCTIONALITIES.md. Default: Yes. Without it, Ollama falls back to `0.0.0.0` binding (less secure but functional).
+4. **No stubs**: Implement completely or not at all.
+5. **HAProxy is optional but recommended**: User consent prompt required. Default: Yes. Without it, Ollama falls back to `0.0.0.0` binding (functional but less secure).
+6. **Claude Code integration is optional**: Always prompt for user consent on the client side.
+7. **curl-pipe install**: Client `install.sh` must work via `curl | bash`.
 
 ---
 
-## Completed Work Summary
+## Completed Work
 
-### v1 (Aider/OpenAI API) - COMPLETE
-- Server: install.sh, uninstall.sh, warm-models.sh, test.sh (26 tests)
-- Client: install.sh, uninstall.sh, test.sh (40 tests), env.template
+**v1 (Aider/OpenAI API)**: Server and client fully implemented. Server: install.sh, uninstall.sh, warm-models.sh, test.sh (26 tests). Client: install.sh, uninstall.sh, test.sh (40 tests), env.template.
 
-### v2+ (Claude Code/Anthropic API) - COMPLETE
-- Server: Anthropic API tests added to test.sh (tests 21-26), `--skip-anthropic-tests` flag
-- Client: Claude Code install step, `claude-ollama` alias, uninstall v2+ cleanup
-- Version management: check-compatibility.sh, pin-versions.sh, downgrade-claude.sh
-- Analytics: loop-with-analytics.sh, compare-analytics.sh, ANALYTICS_README.md, decision matrix
-- Documentation: client/SETUP.md (v2+ sections), server/README.md (Anthropic test docs)
-- Testing: 12 client v2+ tests (29-40), `--skip-claude`/`--v1-only`/`--v2-only` flags
+**v2+ (Claude Code/Anthropic API)**: Client fully implemented. Server Anthropic API tests added. Version management scripts, analytics infrastructure, and documentation all complete.
 
-### Bug Fixes Applied (v0.0.17-v0.0.18)
-- `grep -c` exit code handling in analytics scripts
-- Server test.sh: timing calculation (nanosecond detection), Anthropic endpoint detection (verbose mode JSON parsing)
-- Client test.sh: same timing + JSON parsing bugs, macOS timeout compatibility
-- Client install.sh: undefined `success()` function call
-
----
-
-## Lessons Learned
-
-### v0.0.4: OLLAMA_API_BASE Bug
-All automated tests passed, but real Aider usage failed. Root cause: `OLLAMA_API_BASE` included `/v1` suffix. Fix: separate `OLLAMA_API_BASE` (no suffix) from `OPENAI_API_BASE` (with `/v1`). **Lesson**: End-to-end integration tests with actual tools are mandatory.
-
-### v0.0.18: Test Harness Bugs
-Hardware tests showed false failures/skips due to test script bugs, not API failures. **Lesson**: When tests fail unexpectedly, examine raw API responses first — the problem may be in the measurement, not the code being measured.
+**Bug fixes**: All test harness bugs from hardware testing sessions have been applied to both server and client test scripts.
 
 ---
 
 ## Spec Baseline
 
-All work must comply with:
-- `server/specs/*.md` (9 files including ANTHROPIC_COMPATIBILITY, HARDENING_OPTIONS)
-- `client/specs/*.md` (9 files including ANALYTICS, CLAUDE_CODE, VERSION_MANAGEMENT)
+All work must comply with the authoritative specs:
+- `server/specs/*.md` (9 files)
+- `client/specs/*.md` (9 files)
 
-Specs are authoritative. Implementation deviations must be corrected unless there is a compelling reason to update the spec.
+Refer to specs for detailed requirements rather than duplicating spec content in this plan. Implementation deviations must be corrected unless there is a compelling reason to update the spec instead.
