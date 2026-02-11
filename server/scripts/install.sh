@@ -281,7 +281,7 @@ cat > "$PLIST_PATH" <<EOF
     <key>EnvironmentVariables</key>
     <dict>
         <key>OLLAMA_HOST</key>
-        <string>0.0.0.0</string>
+        <string>127.0.0.1</string>
         <!-- Optional CORS configuration (uncomment if needed):
         <key>OLLAMA_ORIGINS</key>
         <string>*</string>
@@ -349,7 +349,281 @@ if [[ "$TEST_RESPONSE" == "FAILED" ]] || ! echo "$TEST_RESPONSE" | grep -q "obje
 fi
 info "✓ Self-test passed: /v1/models returned valid response"
 
-# Step 12: Tailscale Configuration Instructions
+# Step 12: HAProxy Installation (Optional - Defense in Depth)
+section_break
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║                                                                ║"
+echo "║                HAProxy Proxy Layer (Optional)                 ║"
+echo "║                                                                ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
+echo ""
+echo "HAProxy provides defense-in-depth security for your Ollama server:"
+echo ""
+echo "  ${GREEN}Benefits:${NC}"
+echo "    • Endpoint allowlisting - Only specific API paths are accessible"
+echo "    • Single choke point - All network access funnels through one boundary"
+echo "    • Defense in depth - Three security layers (Tailscale + HAProxy + loopback)"
+echo "    • Future-expandable - Can add rate limits, auth, logging later"
+echo ""
+echo "  ${YELLOW}Tradeoffs:${NC}"
+echo "    • Adds one more service to manage"
+echo "    • Minimal latency overhead (~1ms per request)"
+echo ""
+echo "Without HAProxy, Ollama will bind to all interfaces (less secure but functional)."
+echo ""
+
+# User consent prompt with default Yes
+INSTALL_HAPROXY="Y"
+read -r -p "Install HAProxy proxy? (Y/n): " HAPROXY_CHOICE < /dev/tty || HAPROXY_CHOICE="Y"
+if [[ -z "$HAPROXY_CHOICE" ]]; then
+    HAPROXY_CHOICE="Y"
+fi
+
+# Normalize to uppercase
+HAPROXY_CHOICE=$(echo "$HAPROXY_CHOICE" | tr '[:lower:]' '[:upper:]')
+
+if [[ "$HAPROXY_CHOICE" == "Y" || "$HAPROXY_CHOICE" == "YES" ]]; then
+    info "Installing HAProxy..."
+
+    # Check if HAProxy is already installed
+    if ! command -v haproxy &> /dev/null; then
+        info "Installing HAProxy via Homebrew..."
+        brew install haproxy > /tmp/haproxy-install.log 2>&1 || fatal "Failed to install HAProxy"
+        info "✓ HAProxy installed"
+    else
+        HAPROXY_VERSION=$(haproxy -v 2>&1 | head -n1 || echo 'version unknown')
+        info "✓ HAProxy already installed: $HAPROXY_VERSION"
+    fi
+
+    # Validate HAProxy binary path
+    HAPROXY_PATH=""
+    if [[ -x "/opt/homebrew/bin/haproxy" ]]; then
+        HAPROXY_PATH="/opt/homebrew/bin/haproxy"
+    elif command -v haproxy &> /dev/null; then
+        HAPROXY_PATH="$(which haproxy)"
+    else
+        fatal "Could not locate haproxy binary after installation"
+    fi
+    info "✓ HAProxy binary: $HAPROXY_PATH"
+
+    # Create HAProxy config directory
+    info "Creating HAProxy configuration..."
+    mkdir -p "$HOME/.haproxy"
+
+    # Get Tailscale IP for frontend binding
+    if [[ -z "$TAILSCALE_IP" ]]; then
+        # Try to get it again if we haven't captured it yet
+        if command -v tailscale &> /dev/null; then
+            TAILSCALE_IP=$(tailscale ip -4 2>/dev/null | head -n1 || echo "")
+        fi
+    fi
+
+    if [[ -z "$TAILSCALE_IP" ]]; then
+        warn "Tailscale IP not detected - HAProxy will bind to *:11434"
+        warn "This is less secure. Consider re-running install.sh after connecting Tailscale."
+        HAPROXY_BIND_ADDRESS="*:11434"
+    else
+        HAPROXY_BIND_ADDRESS="${TAILSCALE_IP}:11434"
+    fi
+
+    # Generate HAProxy configuration
+    cat > "$HOME/.haproxy/haproxy.cfg" <<'HAPROXY_CFG_EOF'
+# HAProxy configuration for remote-ollama-proxy
+# Provides endpoint allowlisting and defense-in-depth security
+
+global
+    log stdout format raw local0 info
+    maxconn 4096
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    timeout connect 5s
+    timeout client  300s
+    timeout server  300s
+
+frontend ollama_proxy
+HAPROXY_CFG_EOF
+
+    # Add bind address (templated)
+    echo "    bind ${HAPROXY_BIND_ADDRESS}" >> "$HOME/.haproxy/haproxy.cfg"
+
+    # Continue with the rest of the config
+    cat >> "$HOME/.haproxy/haproxy.cfg" <<'HAPROXY_CFG_EOF'
+
+    # Endpoint allowlist - OpenAI API
+    acl openai_chat path_beg /v1/chat/completions
+    acl openai_models_list path /v1/models
+    acl openai_models_detail path_beg /v1/models/
+    acl openai_responses path_beg /v1/responses
+
+    # Endpoint allowlist - Anthropic API
+    acl anthropic_messages path_beg /v1/messages
+
+    # Endpoint allowlist - Ollama Native API (metadata only)
+    acl ollama_version path /api/version
+    acl ollama_tags path /api/tags
+    acl ollama_show path /api/show
+
+    # Allow only allowlisted endpoints
+    use_backend ollama_backend if openai_chat
+    use_backend ollama_backend if openai_models_list
+    use_backend ollama_backend if openai_models_detail
+    use_backend ollama_backend if openai_responses
+    use_backend ollama_backend if anthropic_messages
+    use_backend ollama_backend if ollama_version
+    use_backend ollama_backend if ollama_tags
+    use_backend ollama_backend if ollama_show
+
+    # Default deny - return 403 Forbidden
+    default_backend deny_backend
+
+backend ollama_backend
+    server ollama 127.0.0.1:11434 check
+
+backend deny_backend
+    http-request deny deny_status 403
+HAPROXY_CFG_EOF
+
+    info "✓ HAProxy config created at ~/.haproxy/haproxy.cfg"
+    info "  Frontend: $HAPROXY_BIND_ADDRESS → Backend: 127.0.0.1:11434"
+
+    # Create HAProxy LaunchAgent plist
+    HAPROXY_PLIST_PATH="$HOME/Library/LaunchAgents/com.haproxy.plist"
+    info "Creating HAProxy LaunchAgent plist at $HAPROXY_PLIST_PATH..."
+
+    cat > "$HAPROXY_PLIST_PATH" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.haproxy</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$HAPROXY_PATH</string>
+        <string>-f</string>
+        <string>$HOME/.haproxy/haproxy.cfg</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/haproxy.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/haproxy.stderr.log</string>
+</dict>
+</plist>
+EOF
+
+    info "✓ HAProxy LaunchAgent plist created"
+
+    # Load HAProxy service
+    info "Loading HAProxy LaunchAgent..."
+    HAPROXY_LABEL="com.haproxy"
+    launchctl bootstrap "$LAUNCHD_DOMAIN" "$HAPROXY_PLIST_PATH" || fatal "Failed to load HAProxy LaunchAgent"
+    sleep 2
+    info "✓ HAProxy LaunchAgent loaded"
+
+    # Verify HAProxy is running
+    info "Verifying HAProxy is running..."
+    HAPROXY_PID=$(pgrep -f "haproxy.*haproxy.cfg" | head -n1 || echo "")
+    if [[ -n "$HAPROXY_PID" ]]; then
+        info "✓ HAProxy is running (PID: $HAPROXY_PID)"
+    else
+        warn "Could not verify HAProxy process - check logs: /tmp/haproxy.stderr.log"
+    fi
+
+    # Test proxy forwarding (if Tailscale connected)
+    if [[ -n "$TAILSCALE_IP" ]]; then
+        info "Testing proxy forwarding..."
+        PROXY_TEST=$(curl -sf "http://${TAILSCALE_IP}:11434/v1/models" 2>/dev/null || echo "FAILED")
+        if [[ "$PROXY_TEST" == "FAILED" ]] || ! echo "$PROXY_TEST" | grep -q "object"; then
+            warn "Proxy forwarding test failed - check HAProxy logs"
+        else
+            info "✓ Proxy forwarding works: $TAILSCALE_IP:11434 → 127.0.0.1:11434"
+        fi
+    fi
+
+    info "✓ HAProxy installation complete"
+    HAPROXY_INSTALLED="yes"
+else
+    info "HAProxy installation skipped - using fallback mode"
+    warn "⚠  Security notice: Ollama will bind to 0.0.0.0 (all interfaces)"
+    warn "   This is less secure but functional. Security relies only on Tailscale ACLs."
+
+    # Update Ollama plist to use 0.0.0.0 (fallback mode)
+    info "Updating Ollama to bind to all interfaces..."
+
+    # Stop Ollama service
+    launchctl bootout "$LAUNCHD_DOMAIN/$LAUNCHD_LABEL" 2>/dev/null || true
+    sleep 2
+
+    # Recreate plist with 0.0.0.0
+    cat > "$PLIST_PATH" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ollama</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$OLLAMA_PATH</string>
+        <string>serve</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>OLLAMA_HOST</key>
+        <string>0.0.0.0</string>
+        <!-- Optional CORS configuration (uncomment if needed):
+        <key>OLLAMA_ORIGINS</key>
+        <string>*</string>
+        -->
+    </dict>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/ollama.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/ollama.stderr.log</string>
+</dict>
+</plist>
+EOF
+
+    # Reload Ollama service
+    launchctl bootstrap "$LAUNCHD_DOMAIN" "$PLIST_PATH" || fatal "Failed to reload Ollama LaunchAgent"
+    sleep 3
+
+    # Verify Ollama is still working
+    RETRY_COUNT=0
+    MAX_RETRIES=10
+    OLLAMA_READY=false
+
+    while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+        if curl -sf http://localhost:11434/v1/models &> /dev/null; then
+            OLLAMA_READY=true
+            break
+        fi
+        sleep 2
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+
+    if [[ "$OLLAMA_READY" == "true" ]]; then
+        info "✓ Ollama restarted and responding"
+    else
+        fatal "Ollama did not respond after restart. Check logs: /tmp/ollama.stderr.log"
+    fi
+
+    HAPROXY_INSTALLED="no"
+fi
+
+# Step 13: Tailscale Configuration Instructions
 important_section "NEXT STEPS: Tailscale Configuration Required"
 
 if [[ -n "$TAILSCALE_IP" ]]; then
@@ -434,7 +708,12 @@ echo "╚═══════════════════════�
 echo ""
 
 if [[ -n "$TAILSCALE_IP" ]]; then
-    echo -e "  ✓ Ollama running on: ${GREEN}0.0.0.0:11434${NC}"
+    if [[ "${HAPROXY_INSTALLED:-no}" == "yes" ]]; then
+        echo -e "  ✓ HAProxy proxy: ${GREEN}${TAILSCALE_IP}:11434 → 127.0.0.1:11434${NC}"
+        echo -e "  ✓ Ollama bound to: ${GREEN}127.0.0.1:11434 (loopback only)${NC}"
+    else
+        echo -e "  ✓ Ollama running on: ${GREEN}0.0.0.0:11434 (all interfaces)${NC}"
+    fi
     echo -e "  ✓ Tailscale connected: ${GREEN}$TAILSCALE_IP${NC}"
     echo -e "  ✓ Auto-start on boot: ${GREEN}enabled${NC}"
     echo ""
@@ -457,6 +736,10 @@ if [[ -n "$TAILSCALE_IP" ]]; then
     echo "Troubleshooting commands:"
     echo -e "  • Restart Ollama: ${BLUE}launchctl kickstart -k $LAUNCHD_DOMAIN/$LAUNCHD_LABEL${NC}"
     echo -e "  • View logs:      ${BLUE}tail -f /tmp/ollama.stderr.log${NC}"
+    if [[ "${HAPROXY_INSTALLED:-no}" == "yes" ]]; then
+        echo -e "  • Restart HAProxy: ${BLUE}launchctl kickstart -k $LAUNCHD_DOMAIN/com.haproxy${NC}"
+        echo -e "  • View HAProxy logs: ${BLUE}tail -f /tmp/haproxy.stderr.log${NC}"
+    fi
     echo ""
 else
     warn "⚠  Tailscale is NOT connected!"

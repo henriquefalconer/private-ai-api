@@ -89,11 +89,78 @@ else
     info "No log files found to remove"
 fi
 
-# Step 4: Document what was left untouched
+# Step 4: HAProxy cleanup (if installed)
+info "Checking for HAProxy installation..."
+HAPROXY_LABEL="com.haproxy"
+HAPROXY_PLIST_PATH="$HOME/Library/LaunchAgents/com.haproxy.plist"
+HAPROXY_CONFIG_DIR="$HOME/.haproxy"
+
+HAPROXY_WAS_INSTALLED=false
+
+# Check if HAProxy service exists
+if launchctl print "$LAUNCHD_DOMAIN/$HAPROXY_LABEL" &> /dev/null; then
+    HAPROXY_WAS_INSTALLED=true
+    info "HAProxy service detected, stopping..."
+    if launchctl bootout "$LAUNCHD_DOMAIN/$HAPROXY_LABEL" 2>/dev/null; then
+        info "✓ HAProxy service stopped successfully"
+        REMOVED_ITEMS+=("HAProxy LaunchAgent service (stopped and unloaded)")
+    else
+        warn "Failed to stop HAProxy service gracefully, but continuing..."
+        REMOVED_ITEMS+=("HAProxy LaunchAgent service (attempted to stop)")
+    fi
+    sleep 2
+elif [[ -f "$HAPROXY_PLIST_PATH" ]]; then
+    HAPROXY_WAS_INSTALLED=true
+    info "HAProxy plist found but service not loaded"
+fi
+
+# Remove HAProxy plist
+if [[ -f "$HAPROXY_PLIST_PATH" ]]; then
+    rm -f "$HAPROXY_PLIST_PATH"
+    info "✓ Removed HAProxy plist file: $HAPROXY_PLIST_PATH"
+    REMOVED_ITEMS+=("HAProxy LaunchAgent plist ($HAPROXY_PLIST_PATH)")
+fi
+
+# Remove HAProxy config directory
+if [[ -d "$HAPROXY_CONFIG_DIR" ]]; then
+    rm -rf "$HAPROXY_CONFIG_DIR"
+    info "✓ Removed HAProxy config directory: $HAPROXY_CONFIG_DIR"
+    REMOVED_ITEMS+=("HAProxy configuration directory ($HAPROXY_CONFIG_DIR)")
+fi
+
+# Clean up HAProxy log files
+info "Cleaning up HAProxy log files..."
+HAPROXY_LOG_FILES=(
+    "/tmp/haproxy.stdout.log"
+    "/tmp/haproxy.stderr.log"
+    "/tmp/haproxy-install.log"
+)
+
+HAPROXY_LOGS_REMOVED=0
+for LOG_FILE in "${HAPROXY_LOG_FILES[@]}"; do
+    if [[ -f "$LOG_FILE" ]]; then
+        rm -f "$LOG_FILE"
+        info "✓ Removed HAProxy log file: $LOG_FILE"
+        HAPROXY_LOGS_REMOVED=$((HAPROXY_LOGS_REMOVED + 1))
+    fi
+done
+
+if [[ $HAPROXY_LOGS_REMOVED -gt 0 ]]; then
+    REMOVED_ITEMS+=("HAProxy log files ($HAPROXY_LOGS_REMOVED files from /tmp/)")
+fi
+
+if [[ "$HAPROXY_WAS_INSTALLED" == "true" ]]; then
+    info "✓ HAProxy cleanup complete"
+else
+    info "HAProxy was not installed (nothing to remove)"
+fi
+
+# Step 5: Document what was left untouched
 info "Documenting components left untouched..."
 REMAINING_ITEMS+=("Homebrew (if installed)")
 REMAINING_ITEMS+=("Tailscale (if installed)")
 REMAINING_ITEMS+=("Ollama binary (installed via Homebrew)")
+REMAINING_ITEMS+=("HAProxy binary (installed via Homebrew, if present)")
 REMAINING_ITEMS+=("Downloaded models in ~/.ollama/models/ (valuable data preserved)")
 
 # Verify the model directory still exists
@@ -128,6 +195,10 @@ echo ""
 info "To completely remove Ollama and its data:"
 echo "  • Uninstall Ollama binary: brew uninstall ollama"
 echo "  • Remove model data: rm -rf ~/.ollama"
+echo ""
+
+info "To uninstall HAProxy (if installed):"
+echo "  • brew uninstall haproxy"
 echo ""
 
 info "To uninstall Tailscale:"
