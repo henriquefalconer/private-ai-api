@@ -511,7 +511,7 @@ alias claude-ollama='ANTHROPIC_AUTH_TOKEN=ollama ANTHROPIC_API_KEY="" ANTHROPIC_
 $CLAUDE_MARKER_END
 CLAUDE_PROFILE_EOF
 
-        success "Added claude-ollama alias to shell profile"
+        info "✓ Added claude-ollama alias to shell profile"
 
         echo ""
         info "To use Claude Code with Ollama:"
