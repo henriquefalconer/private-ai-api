@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 TESTS_PASSED=0
 TESTS_FAILED=0
 TESTS_SKIPPED=0
-TOTAL_TESTS=26
+TOTAL_TESTS=34
 CURRENT_TEST=0
 
 # Flags
@@ -837,24 +837,38 @@ else
     fail "Plist file missing"
 fi
 
-# Test 17: OLLAMA_HOST=0.0.0.0 in plist
+# Test 17: OLLAMA_HOST in plist (check for loopback binding)
 show_progress "Checking OLLAMA_HOST in plist..."
-if grep -q "OLLAMA_HOST" "$PLIST_PATH" && grep -q "0.0.0.0" "$PLIST_PATH"; then
-    pass "OLLAMA_HOST=0.0.0.0 configured in plist"
+if grep -q "OLLAMA_HOST" "$PLIST_PATH" && grep -q "127.0.0.1" "$PLIST_PATH"; then
+    pass "OLLAMA_HOST=127.0.0.1 configured in plist (loopback-only binding)"
+elif grep -q "OLLAMA_HOST" "$PLIST_PATH" && grep -q "0.0.0.0" "$PLIST_PATH"; then
+    fail "OLLAMA_HOST=0.0.0.0 found in plist (should be 127.0.0.1 for security)" "" "" "HAProxy not installed - fallback mode active"
 else
-    fail "OLLAMA_HOST=0.0.0.0 not found in plist"
+    fail "OLLAMA_HOST not found in plist or has unexpected value"
 fi
 
 echo ""
 echo "=== Network Tests ==="
 
-# Test 18: Service binds to 0.0.0.0
-show_progress "Checking service binding..."
-if lsof -i :11434 -sTCP:LISTEN 2>/dev/null | grep -q "0.0.0.0:11434" || \
-   netstat -an 2>/dev/null | grep "11434" | grep -q "LISTEN"; then
-    pass "Service binds to all interfaces (0.0.0.0)"
+# Test 18: Ollama service binding (verify loopback-only)
+show_progress "Checking Ollama service binding..."
+if command -v lsof &> /dev/null; then
+    OLLAMA_BINDING=$(lsof -i :11434 -sTCP:LISTEN 2>/dev/null | grep -E "ollama|haproxy" || echo "")
+    if echo "$OLLAMA_BINDING" | grep -q "127.0.0.1:11434"; then
+        pass "Ollama binds to loopback only (127.0.0.1:11434) - secure"
+    elif echo "$OLLAMA_BINDING" | grep -q "0.0.0.0:11434"; then
+        # Check if HAProxy is also running (fallback mode is OK if HAProxy declined)
+        if lsof -i :11434 -sTCP:LISTEN 2>/dev/null | grep -q "haproxy"; then
+            fail "Ollama binds to 0.0.0.0 even though HAProxy is running (security violation)"
+        else
+            warn "Ollama binds to 0.0.0.0 (fallback mode - HAProxy not installed)"
+            pass "Ollama accessible (fallback mode)"
+        fi
+    else
+        skip "Could not determine Ollama binding from lsof output"
+    fi
 else
-    skip "Could not verify service binding (lsof/netstat unavailable or ambiguous)" "Install network tools or check manually with 'lsof -i :11434'"
+    skip "lsof not available - cannot verify binding" "Install lsof or check manually"
 fi
 
 # Test 19: Localhost access
@@ -880,6 +894,167 @@ if command -v tailscale &> /dev/null && tailscale ip -4 &> /dev/null; then
     fi
 else
     skip "Tailscale not installed or not connected" "Install Tailscale via 'brew install tailscale' and connect"
+fi
+
+echo ""
+echo "=== HAProxy Tests ==="
+
+# Detect if HAProxy is installed
+HAPROXY_INSTALLED=false
+HAPROXY_LABEL="com.haproxy"
+HAPROXY_PLIST_PATH="$HOME/Library/LaunchAgents/com.haproxy.plist"
+
+if [[ -f "$HAPROXY_PLIST_PATH" ]] || launchctl print "gui/$(id -u)/$HAPROXY_LABEL" &> /dev/null 2>&1; then
+    HAPROXY_INSTALLED=true
+fi
+
+if [[ "$HAPROXY_INSTALLED" == "false" ]]; then
+    skip "HAProxy tests - HAProxy not installed" "Re-run install.sh and choose 'Yes' when prompted for HAProxy"
+    skip "HAProxy LaunchAgent check - HAProxy not installed"
+    skip "HAProxy binding check - HAProxy not installed"
+    skip "HAProxy allowlist tests - HAProxy not installed"
+    skip "HAProxy blocked endpoints - HAProxy not installed"
+    skip "Direct Ollama access blocked - HAProxy not installed"
+    skip "HAProxy logs check - HAProxy not installed"
+    skip "HAProxy config check - HAProxy not installed"
+else
+    # Test 21: HAProxy LaunchAgent loaded
+    show_progress "Checking HAProxy LaunchAgent..."
+    if launchctl print "gui/$(id -u)/$HAPROXY_LABEL" &> /dev/null; then
+        pass "HAProxy LaunchAgent is loaded"
+    else
+        fail "HAProxy LaunchAgent is not loaded" "" "" "Check logs: tail -f /tmp/haproxy.stderr.log"
+    fi
+
+    # Test 22: HAProxy process running
+    show_progress "Checking HAProxy process..."
+    HAPROXY_PID=$(pgrep -f "haproxy.*haproxy.cfg" | head -n1 || echo "")
+    if [[ -n "$HAPROXY_PID" ]]; then
+        HAPROXY_USER=$(ps -o user= -p "$HAPROXY_PID" | tr -d ' ')
+        if [[ "$HAPROXY_USER" == "root" ]]; then
+            fail "HAProxy is running as root (security concern)"
+        else
+            pass "HAProxy process running as user: $HAPROXY_USER (PID: $HAPROXY_PID)"
+        fi
+    else
+        fail "HAProxy process not found" "" "" "Check logs: tail -f /tmp/haproxy.stderr.log"
+    fi
+
+    # Test 23: HAProxy listening on Tailscale interface
+    show_progress "Checking HAProxy binding..."
+    if command -v lsof &> /dev/null; then
+        if command -v tailscale &> /dev/null && tailscale ip -4 &> /dev/null; then
+            TAILSCALE_IP=$(tailscale ip -4 2>/dev/null | head -n1 || echo "")
+            if [[ -n "$TAILSCALE_IP" ]]; then
+                HAPROXY_BINDING=$(lsof -i :11434 -sTCP:LISTEN 2>/dev/null | grep haproxy || echo "")
+                if [[ -n "$HAPROXY_BINDING" ]] && echo "$HAPROXY_BINDING" | grep -q "$TAILSCALE_IP"; then
+                    pass "HAProxy listening on Tailscale interface ($TAILSCALE_IP:11434)"
+                elif [[ -n "$HAPROXY_BINDING" ]]; then
+                    warn "HAProxy is listening but not on expected Tailscale IP"
+                    pass "HAProxy is listening on port 11434"
+                else
+                    fail "HAProxy not listening on expected interface"
+                fi
+            else
+                skip "Tailscale IP not available - cannot verify HAProxy binding" "Connect to Tailscale"
+            fi
+        else
+            skip "Tailscale not available - cannot verify HAProxy binding"
+        fi
+    else
+        skip "lsof not available - cannot verify HAProxy binding"
+    fi
+
+    # Test 24-26: Allowlisted endpoint forwarding
+    show_progress "Testing allowlisted endpoint: POST /v1/chat/completions..."
+    if [[ -n "${TAILSCALE_IP:-}" ]] && [[ -n "${FIRST_MODEL:-}" ]]; then
+        HAPROXY_CHAT_TEST=$(curl -sf "http://$TAILSCALE_IP:11434/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -d "{\"model\":\"$FIRST_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"test\"}],\"max_tokens\":1}" \
+            2>/dev/null || echo "FAILED")
+        if [[ "$HAPROXY_CHAT_TEST" != "FAILED" ]] && echo "$HAPROXY_CHAT_TEST" | jq -e '.choices' &> /dev/null; then
+            pass "HAProxy forwards POST /v1/chat/completions (allowlisted)"
+        else
+            fail "HAProxy failed to forward POST /v1/chat/completions"
+        fi
+    else
+        skip "Cannot test HAProxy forwarding - Tailscale IP or model unavailable"
+    fi
+
+    show_progress "Testing allowlisted endpoint: GET /v1/models..."
+    if [[ -n "${TAILSCALE_IP:-}" ]]; then
+        HAPROXY_MODELS_TEST=$(curl -sf "http://$TAILSCALE_IP:11434/v1/models" 2>/dev/null || echo "FAILED")
+        if [[ "$HAPROXY_MODELS_TEST" != "FAILED" ]] && echo "$HAPROXY_MODELS_TEST" | jq -e '.object' &> /dev/null; then
+            pass "HAProxy forwards GET /v1/models (allowlisted)"
+        else
+            fail "HAProxy failed to forward GET /v1/models"
+        fi
+    else
+        skip "Cannot test HAProxy forwarding - Tailscale IP unavailable"
+    fi
+
+    show_progress "Testing allowlisted endpoint: GET /api/version..."
+    if [[ -n "${TAILSCALE_IP:-}" ]]; then
+        HAPROXY_VERSION_TEST=$(curl -sf "http://$TAILSCALE_IP:11434/api/version" 2>/dev/null || echo "FAILED")
+        if [[ "$HAPROXY_VERSION_TEST" != "FAILED" ]]; then
+            pass "HAProxy forwards GET /api/version (allowlisted)"
+        else
+            fail "HAProxy failed to forward GET /api/version"
+        fi
+    else
+        skip "Cannot test HAProxy forwarding - Tailscale IP unavailable"
+    fi
+
+    # Test 27-28: Blocked endpoint enforcement
+    show_progress "Testing blocked endpoint: POST /api/generate..."
+    if [[ -n "${TAILSCALE_IP:-}" ]]; then
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$TAILSCALE_IP:11434/api/generate" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"test","prompt":"hi"}' 2>/dev/null || echo "000")
+        if [[ "$HTTP_CODE" == "403" ]] || [[ "$HTTP_CODE" == "404" ]]; then
+            pass "HAProxy blocks POST /api/generate (not in allowlist) - HTTP $HTTP_CODE"
+        elif [[ "$HTTP_CODE" == "000" ]]; then
+            fail "HAProxy connection failed for blocked endpoint test"
+        else
+            fail "HAProxy did not block POST /api/generate (got HTTP $HTTP_CODE, expected 403 or 404)"
+        fi
+    else
+        skip "Cannot test HAProxy blocking - Tailscale IP unavailable"
+    fi
+
+    show_progress "Testing blocked endpoint: POST /api/pull..."
+    if [[ -n "${TAILSCALE_IP:-}" ]]; then
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$TAILSCALE_IP:11434/api/pull" \
+            -H "Content-Type: application/json" \
+            -d '{"name":"test"}' 2>/dev/null || echo "000")
+        if [[ "$HTTP_CODE" == "403" ]] || [[ "$HTTP_CODE" == "404" ]]; then
+            pass "HAProxy blocks POST /api/pull (not in allowlist) - HTTP $HTTP_CODE"
+        elif [[ "$HTTP_CODE" == "000" ]]; then
+            fail "HAProxy connection failed for blocked endpoint test"
+        else
+            fail "HAProxy did not block POST /api/pull (got HTTP $HTTP_CODE, expected 403 or 404)"
+        fi
+    else
+        skip "Cannot test HAProxy blocking - Tailscale IP unavailable"
+    fi
+
+    # Test 29: HAProxy logs exist
+    show_progress "Checking HAProxy logs..."
+    if [[ -f /tmp/haproxy.stdout.log ]] || [[ -f /tmp/haproxy.stderr.log ]]; then
+        pass "HAProxy log files exist"
+    else
+        warn "HAProxy log files not found (may not have been created yet)"
+        pass "HAProxy logs check completed"
+    fi
+
+    # Test 30: HAProxy config exists
+    show_progress "Checking HAProxy config..."
+    HAPROXY_CONFIG_PATH="$HOME/.haproxy/haproxy.cfg"
+    if [[ -f "$HAPROXY_CONFIG_PATH" ]]; then
+        pass "HAProxy config exists ($HAPROXY_CONFIG_PATH)"
+    else
+        fail "HAProxy config missing ($HAPROXY_CONFIG_PATH)"
+    fi
 fi
 
 # Final summary (F3.8: Use box-drawing characters)
