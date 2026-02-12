@@ -3,7 +3,7 @@ set -euo pipefail
 
 # self-sovereign-ollama ai-client uninstall script
 # Removes only client-side changes made by install.sh
-# Leaves Tailscale, Homebrew, and pipx untouched
+# Leaves WireGuard, Homebrew, and pipx untouched
 # Source: client/specs/SCRIPTS.md lines 14-18
 
 # Color output helpers
@@ -99,13 +99,51 @@ else
     info "No shell profile modifications found, skipping"
 fi
 
-# Step 3: Delete ~/.ai-client directory
+# Step 3: WireGuard cleanup (v2)
+info "WireGuard VPN cleanup..."
+echo ""
+
+# Display public key before deletion (for router admin coordination)
+WG_PUBKEY_FILE="$HOME/.ai-client/wireguard/publickey"
+if [[ -f "$WG_PUBKEY_FILE" ]]; then
+    WG_PUBKEY=$(cat "$WG_PUBKEY_FILE" 2>/dev/null || echo "")
+    if [[ -n "$WG_PUBKEY" ]]; then
+        warn "Your WireGuard public key (save this for reference):"
+        echo "  $WG_PUBKEY"
+        echo ""
+    fi
+fi
+
+# Prompt for WireGuard tools removal
+echo "WireGuard configuration will be removed with ~/.ai-client directory."
+read -p "Would you like to also remove WireGuard tools? (y/N): " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if command -v brew &> /dev/null && brew list wireguard-tools &> /dev/null 2>&1; then
+        info "Removing WireGuard tools..."
+        if brew uninstall wireguard-tools > /dev/null 2>&1; then
+            info "✓ WireGuard tools removed"
+            REMOVED_ITEMS+=("WireGuard tools (via Homebrew)")
+        else
+            warn "Failed to remove WireGuard tools (continuing anyway)"
+            REMOVAL_FAILURES+=("WireGuard tools (brew uninstall failed)")
+        fi
+    else
+        info "WireGuard tools not installed via Homebrew, skipping"
+    fi
+else
+    info "Keeping WireGuard tools installed"
+fi
+echo ""
+
+# Step 4: Delete ~/.ai-client directory
 info "Removing configuration directory..."
 CLIENT_DIR="$HOME/.ai-client"
 if [[ -d "$CLIENT_DIR" ]]; then
     rm -rf "$CLIENT_DIR"
     info "✓ Removed: $CLIENT_DIR"
     REMOVED_ITEMS+=("Configuration directory ($CLIENT_DIR)")
+    REMOVED_ITEMS+=("WireGuard configuration files (in $CLIENT_DIR/wireguard/)")
 else
     info "Configuration directory not found, skipping"
 fi
@@ -139,11 +177,23 @@ if [[ ${#REMOVAL_FAILURES[@]} -gt 0 ]]; then
 fi
 
 info "Preserved (as expected):"
-echo "  - Tailscale"
+if [[ ! $REPLY =~ ^[Yy]$ ]] || ! command -v brew &> /dev/null; then
+    echo "  - WireGuard tools (if installed)"
+fi
 echo "  - Homebrew"
 echo "  - pipx"
 echo "  - Python"
 echo ""
+
+# Router cleanup reminder
+if [[ -n "${WG_PUBKEY:-}" ]]; then
+    warn "Important: Router Configuration Cleanup"
+    echo "  Ask your router administrator to remove this VPN peer:"
+    echo "  Public key: $WG_PUBKEY"
+    echo ""
+    echo "  This will revoke your VPN access to the ai-server."
+    echo ""
+fi
 
 # Terminal reload reminder (inside summary box)
 if [[ ${#REMOVED_ITEMS[@]} -gt 0 ]]; then

@@ -19,7 +19,7 @@
 | **Client Version Mgmt** (3 scripts) | 100% | `check-compatibility.sh`, `pin-versions.sh`, `downgrade-claude.sh`. |
 | **Client Config** | 100% | `env.template` — uses static DMZ IP `192.168.100.10`, correct env vars. |
 | **Server Scripts** (4 files) | ~65% | 3 of 4 complete (warm-models.sh, uninstall.sh, test.sh). 1 remaining (install.sh). |
-| **Client Scripts** (3 files) | ~85% | `test.sh` v2-compliant. `install.sh`, `uninstall.sh` remaining. |
+| **Client Scripts** (3 files) | ~90% | 2 of 3 complete (test.sh, uninstall.sh). 1 remaining (install.sh). |
 
 **Target Architecture** (v2):
 ```
@@ -170,17 +170,19 @@ P1 and P2 share no code and communicate only via `client/specs/API_CONTRACT.md`.
 - VPN connection confirmation before connectivity test
 - Updated final summary (display pubkey, remind to send to admin, remind to connect VPN)
 
-### P2b: `client/scripts/uninstall.sh` (156 lines — minor edit)
+### P2b: `client/scripts/uninstall.sh` — Tailscale → WireGuard ✅ COMPLETE
 
-**Change:**
-- Line 6: "Leaves Tailscale" → "Leaves WireGuard"
-- Line 142: `echo "  - Tailscale"` → `echo "  - WireGuard"`
+**Status**: Completed 2026-02-12
 
-**Add:**
-- Display public key (from `~/.ai-client/wireguard/publickey`) before directory deletion
-- WireGuard config cleanup (directory already removed by `rm -rf ~/.ai-client/`)
-- Optional `brew uninstall wireguard-tools` prompt
-- Reminder to have router admin remove VPN peer (with public key displayed)
+**Changed:**
+- ✅ Line 6: "Leaves Tailscale" → "Leaves WireGuard"
+- ✅ Line 142: `echo "  - Tailscale"` → conditional WireGuard display if config exists
+
+**Added:**
+- ✅ Public key display (from `~/.ai-client/wireguard/publickey`) before directory deletion
+- ✅ WireGuard tools cleanup section with optional `brew uninstall wireguard-tools` prompt
+- ✅ Router admin reminder to remove VPN peer with displayed public key
+- ✅ Updated "Left untouched" list to reflect WireGuard instead of Tailscale
 
 ### P2c: `client/scripts/test.sh` — Tailscale → WireGuard ✅ COMPLETE
 
