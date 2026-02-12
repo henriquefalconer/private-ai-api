@@ -89,79 +89,66 @@ else
     info "No log files found to remove"
 fi
 
-# Step 4: HAProxy cleanup (if installed)
-info "Checking for HAProxy installation..."
-HAPROXY_LABEL="com.haproxy"
-HAPROXY_PLIST_PATH="$HOME/Library/LaunchAgents/com.haproxy.plist"
-HAPROXY_CONFIG_DIR="$HOME/.haproxy"
-
-HAPROXY_WAS_INSTALLED=false
-
-# Check if HAProxy service exists
-if launchctl print "$LAUNCHD_DOMAIN/$HAPROXY_LABEL" &> /dev/null; then
-    HAPROXY_WAS_INSTALLED=true
-    info "HAProxy service detected, stopping..."
-    if launchctl bootout "$LAUNCHD_DOMAIN/$HAPROXY_LABEL" 2>/dev/null; then
-        info "✓ HAProxy service stopped successfully"
-        REMOVED_ITEMS+=("HAProxy LaunchAgent service (stopped and unloaded)")
+# Step 4: Network configuration cleanup (v2)
+echo ""
+info "Network configuration cleanup..."
+echo ""
+warn "Note: This script does NOT automatically revert network settings."
+echo ""
+echo "If you configured a static IP for the DMZ network during installation,"
+echo "you may want to revert it back to DHCP:"
+echo ""
+echo "  sudo networksetup -listallhardwareports"
+echo "  sudo networksetup -setdhcp \"<interface-name>\""
+echo ""
+echo "Example:"
+echo "  sudo networksetup -setdhcp \"Ethernet\""
+echo ""
+read -p "Would you like to revert the static IP to DHCP now? (y/N): " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Available network interfaces:"
+    networksetup -listallhardwareports | grep -A 1 "Hardware Port" | grep -v "^--$"
+    echo ""
+    read -p "Enter the interface name (e.g., Ethernet): " INTERFACE_NAME
+    if [[ -n "$INTERFACE_NAME" ]]; then
+        info "Reverting $INTERFACE_NAME to DHCP..."
+        if sudo networksetup -setdhcp "$INTERFACE_NAME"; then
+            info "✓ Successfully reverted $INTERFACE_NAME to DHCP"
+            REMOVED_ITEMS+=("Static IP configuration (reverted to DHCP)")
+        else
+            error "Failed to revert to DHCP"
+            warn "You may need to manually configure this in System Settings"
+        fi
     else
-        warn "Failed to stop HAProxy service gracefully, but continuing..."
-        REMOVED_ITEMS+=("HAProxy LaunchAgent service (attempted to stop)")
+        warn "No interface name provided, skipping..."
     fi
-    sleep 2
-elif [[ -f "$HAPROXY_PLIST_PATH" ]]; then
-    HAPROXY_WAS_INSTALLED=true
-    info "HAProxy plist found but service not loaded"
-fi
-
-# Remove HAProxy plist
-if [[ -f "$HAPROXY_PLIST_PATH" ]]; then
-    rm -f "$HAPROXY_PLIST_PATH"
-    info "✓ Removed HAProxy plist file: $HAPROXY_PLIST_PATH"
-    REMOVED_ITEMS+=("HAProxy LaunchAgent plist ($HAPROXY_PLIST_PATH)")
-fi
-
-# Remove HAProxy config directory
-if [[ -d "$HAPROXY_CONFIG_DIR" ]]; then
-    rm -rf "$HAPROXY_CONFIG_DIR"
-    info "✓ Removed HAProxy config directory: $HAPROXY_CONFIG_DIR"
-    REMOVED_ITEMS+=("HAProxy configuration directory ($HAPROXY_CONFIG_DIR)")
-fi
-
-# Clean up HAProxy log files
-info "Cleaning up HAProxy log files..."
-HAPROXY_LOG_FILES=(
-    "/tmp/haproxy.stdout.log"
-    "/tmp/haproxy.stderr.log"
-    "/tmp/haproxy-install.log"
-)
-
-HAPROXY_LOGS_REMOVED=0
-for LOG_FILE in "${HAPROXY_LOG_FILES[@]}"; do
-    if [[ -f "$LOG_FILE" ]]; then
-        rm -f "$LOG_FILE"
-        info "✓ Removed HAProxy log file: $LOG_FILE"
-        HAPROXY_LOGS_REMOVED=$((HAPROXY_LOGS_REMOVED + 1))
-    fi
-done
-
-if [[ $HAPROXY_LOGS_REMOVED -gt 0 ]]; then
-    REMOVED_ITEMS+=("HAProxy log files ($HAPROXY_LOGS_REMOVED files from /tmp/)")
-fi
-
-if [[ "$HAPROXY_WAS_INSTALLED" == "true" ]]; then
-    info "✓ HAProxy cleanup complete"
 else
-    info "HAProxy was not installed (nothing to remove)"
+    info "Skipping static IP reversion (keeping current configuration)"
 fi
+echo ""
 
-# Step 5: Document what was left untouched
+# Step 5: Router configuration reminder (v2)
+info "Router configuration cleanup..."
+echo ""
+warn "Note: This script does NOT modify your router configuration."
+echo ""
+echo "You should remove this server's WireGuard peer from your router:"
+echo "  1. SSH into your OpenWrt router"
+echo "  2. Remove the WireGuard peer configuration for this server"
+echo "  3. Remove any DMZ firewall rules related to this server"
+echo ""
+echo "For detailed instructions, see:"
+echo "  server/ROUTER_SETUP.md"
+echo ""
+
+# Step 7: Document what was left untouched
 info "Documenting components left untouched..."
 REMAINING_ITEMS+=("Homebrew (if installed)")
-REMAINING_ITEMS+=("Tailscale (if installed)")
 REMAINING_ITEMS+=("Ollama binary (installed via Homebrew)")
-REMAINING_ITEMS+=("HAProxy binary (installed via Homebrew, if present)")
 REMAINING_ITEMS+=("Downloaded models in ~/.ollama/models/ (valuable data preserved)")
+REMAINING_ITEMS+=("Network configuration (static IP, if configured)")
+REMAINING_ITEMS+=("Router configuration (WireGuard peer, DMZ rules)")
 
 # Verify the model directory still exists
 if [[ -d "$HOME/.ollama/models" ]]; then
@@ -197,12 +184,10 @@ echo "  • Uninstall Ollama binary: brew uninstall ollama"
 echo "  • Remove model data: rm -rf ~/.ollama"
 echo ""
 
-info "To uninstall HAProxy (if installed):"
-echo "  • brew uninstall haproxy"
-echo ""
-
-info "To uninstall Tailscale:"
-echo "  • brew uninstall tailscale"
+info "To clean up router configuration:"
+echo "  • SSH into your OpenWrt router"
+echo "  • Remove the WireGuard peer for this server"
+echo "  • Remove DMZ firewall rules (see server/ROUTER_SETUP.md)"
 echo ""
 
 info "The self-sovereign-ollama ai-server has been uninstalled."

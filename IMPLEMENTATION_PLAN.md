@@ -18,7 +18,7 @@
 | **Root Analytics** (3 scripts) | 100% | `loop.sh`, `loop-with-analytics.sh`, `compare-analytics.sh`. |
 | **Client Version Mgmt** (3 scripts) | 100% | `check-compatibility.sh`, `pin-versions.sh`, `downgrade-claude.sh`. |
 | **Client Config** | 100% | `env.template` — uses `__HOSTNAME__` placeholder, correct env vars. |
-| **Server Scripts** (4 files) | ~15% | All 4 need v2 migration (Tailscale/HAProxy/localhost removal). |
+| **Server Scripts** (4 files) | ~40% | 2 of 4 complete (warm-models.sh, uninstall.sh). 2 remaining (install.sh, test.sh). |
 | **Client Scripts** (3 files) | ~60% | `install.sh`, `uninstall.sh`, `test.sh` still reference Tailscale. |
 
 **Target Architecture** (v2):
@@ -79,20 +79,23 @@ P1 and P2 share no code and communicate only via `client/specs/API_CONTRACT.md`.
 - Optional model pre-pull prompt
 - v2 final summary (DMZ IP, auto-start, router connectivity, troubleshooting)
 
-### P1b: `server/scripts/uninstall.sh` (210 lines — moderate edit)
+### P1b: `server/scripts/uninstall.sh` — v2 migration ✅ COMPLETE
 
-**Remove:**
-- HAProxy cleanup section (lines 92-155)
-- "Tailscale" from preserved items list (line 161)
-- "HAProxy binary" from preserved items list (line 163)
-- Tailscale/HAProxy uninstall instructions (lines 200-206)
+**Status**: Completed 2026-02-12
 
-**Keep:**
-- Ollama service stop, plist removal, log cleanup, model preservation (~146 lines)
+**Removed:**
+- ✅ Entire HAProxy cleanup section (lines 92-156, ~64 lines)
+- ✅ v1 references from preserved items list (Tailscale, HAProxy)
+- ✅ Tailscale/HAProxy uninstall instructions (lines 200-206)
 
-**Add:**
-- Optional static IP → DHCP revert prompt (`sudo networksetup -setdhcp "Ethernet"`)
-- Router config cleanup reminder (remove WireGuard peer, DMZ rules; reference `ROUTER_SETUP.md`)
+**Preserved:**
+- ✅ Ollama service stop, plist removal, log cleanup, model preservation
+- ✅ Core uninstall flow and user confirmation prompts
+
+**Added:**
+- ✅ Optional static IP → DHCP revert prompt with `networksetup -setdhcp` command
+- ✅ Router config cleanup reminder (remove WireGuard peer, DMZ rules; reference `ROUTER_SETUP.md`)
+- ✅ Updated "Left untouched" list to include network/router configuration notes
 
 ### P1c: `server/scripts/test.sh` (1089 lines — substantial edit)
 
