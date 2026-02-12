@@ -245,25 +245,31 @@ fi
 echo ""
 echo "=== Dependency Tests ==="
 
-# Test 8: Tailscale installed
-info "Checking for Tailscale..."
-if command -v tailscale &> /dev/null; then
-    pass "Tailscale is installed"
+# Test 8: WireGuard installed
+info "Checking for WireGuard..."
+if command -v wg &> /dev/null || brew list wireguard-tools &> /dev/null 2>&1; then
+    pass "WireGuard is installed"
 else
-    fail "Tailscale is not installed"
+    fail "WireGuard is not installed"
 fi
 
-# Test 9: Tailscale running/connected
-info "Checking Tailscale status..."
-if command -v tailscale &> /dev/null && tailscale status &> /dev/null; then
-    TAILSCALE_IP=$(tailscale ip -4 2>/dev/null | head -n1 || echo "")
-    if [[ -n "$TAILSCALE_IP" ]]; then
-        pass "Tailscale is connected (IP: $TAILSCALE_IP)"
+# Test 9: WireGuard VPN connected
+info "Checking WireGuard VPN status..."
+if wg show &> /dev/null && wg show | grep -q "interface:"; then
+    WG_INTERFACE=$(wg show | grep "interface:" | awk '{print $2}' | head -n1 || echo "")
+    if [[ -n "$WG_INTERFACE" ]]; then
+        pass "WireGuard VPN is connected (interface: $WG_INTERFACE)"
     else
-        fail "Tailscale is installed but not connected"
+        # Fallback: check for active utun interface
+        UTUN_INTERFACE=$(ifconfig | grep -E "^utun[0-9]+" | head -n1 | cut -d: -f1 || echo "")
+        if [[ -n "$UTUN_INTERFACE" ]]; then
+            pass "WireGuard VPN appears connected (interface: $UTUN_INTERFACE)"
+        else
+            fail "WireGuard is installed but VPN is not connected"
+        fi
     fi
 else
-    fail "Tailscale is not running or not connected"
+    fail "WireGuard VPN is not connected"
 fi
 
 # Test 10: Homebrew installed
@@ -330,7 +336,7 @@ else
         fail "Cannot determine server URL (OLLAMA_API_BASE not set)"
     fi
 
-    # Test 14: Tailscale connectivity to server
+    # Test 14: VPN connectivity to server
     if [[ -n "$SERVER_URL" ]]; then
         info "Testing connectivity to server..."
         HOSTNAME=$(echo "$SERVER_URL" | sed 's|http://||' | sed 's|:.*||')
@@ -638,7 +644,7 @@ else
         if [[ "$ERROR_RESPONSE" == "404" ]]; then
             pass "Error handling for nonexistent endpoint works (404)"
         elif [[ "$ERROR_RESPONSE" == "FAILED" ]]; then
-            skip "Error handling test - could not reach server" "Ensure server is running and accessible via Tailscale"
+            skip "Error handling test - could not reach server" "Ensure server is running and accessible via WireGuard VPN"
         else
             info "Nonexistent endpoint returned status: $ERROR_RESPONSE"
         fi
@@ -1410,7 +1416,7 @@ else
     if [[ "$ENV_OR_DEP_FAILURES" == "true" ]]; then
         echo "  • Run install.sh to configure environment and install dependencies"
     fi
-    echo "  • Check if server is running and accessible via Tailscale"
+    echo "  • Check if server is running and accessible via WireGuard VPN"
     echo "  • Verify environment variables: source ~/.ai-client/env"
     echo "  • For Claude Code issues: ensure Ollama 0.5.0+ on server, check alias configuration"
     echo "  • For version issues: run check-compatibility.sh and pin-versions.sh"

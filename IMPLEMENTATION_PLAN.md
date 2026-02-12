@@ -19,7 +19,7 @@
 | **Client Version Mgmt** (3 scripts) | 100% | `check-compatibility.sh`, `pin-versions.sh`, `downgrade-claude.sh`. |
 | **Client Config** | 100% | `env.template` — uses static DMZ IP `192.168.100.10`, correct env vars. |
 | **Server Scripts** (4 files) | ~65% | 3 of 4 complete (warm-models.sh, uninstall.sh, test.sh). 1 remaining (install.sh). |
-| **Client Scripts** (3 files) | ~60% | `install.sh`, `uninstall.sh`, `test.sh` still reference Tailscale. |
+| **Client Scripts** (3 files) | ~85% | `test.sh` v2-compliant. `install.sh`, `uninstall.sh` remaining. |
 
 **Target Architecture** (v2):
 ```
@@ -182,18 +182,19 @@ P1 and P2 share no code and communicate only via `client/specs/API_CONTRACT.md`.
 - Optional `brew uninstall wireguard-tools` prompt
 - Reminder to have router admin remove VPN peer (with public key displayed)
 
-### P2c: `client/scripts/test.sh` (1420 lines — minor edit)
+### P2c: `client/scripts/test.sh` — Tailscale → WireGuard ✅ COMPLETE
 
-98% of the file is already v2-compliant. Only Tests 8-9 and ~6 string replacements needed.
+**Status**: Completed 2026-02-12
 
-**Change:**
-- Test 8 (lines 248-254): `command -v tailscale` → `command -v wg` or `brew list wireguard-tools`
-- Test 9 (lines 256-267): `tailscale status`/`tailscale ip -4` → WireGuard interface check (`wg show` or active `utun`)
-- Test 14 comment (line 333): "Tailscale connectivity" → "VPN connectivity"
-- Error messages (lines 641, 1403, 1413): "Tailscale" → "WireGuard VPN"/"VPN"
+**Changed:**
+- ✅ Test 8 (lines 248-254): `command -v tailscale` → `command -v wg` or `brew list wireguard-tools`
+- ✅ Test 9 (lines 256-267): `tailscale status`/`tailscale ip -4` → WireGuard interface check (`wg show` or active `utun`)
+- ✅ Test 14 comment (line 333): "Tailscale connectivity" → "VPN connectivity"
+- ✅ Error messages (lines 641, 1413): "Tailscale" → "WireGuard VPN"/"VPN"
 
-**Keep:**
-- All other tests: env config (1-7), dependencies (10-13), connectivity (14-19), API contract (20-22), Aider (23-26), script behavior (27-28), Claude Code (29-35), version management (36-40)
+**Preserved:**
+- ✅ All 40 tests: env config (1-7), dependencies (10-13), connectivity (14-19), API contract (20-22), Aider (23-26), script behavior (27-28), Claude Code (29-35), version management (36-40)
+- ✅ Test harness structure, color-coded output, verbose mode, timing logic
 
 ---
 
