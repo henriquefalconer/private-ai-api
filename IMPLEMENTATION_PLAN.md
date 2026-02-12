@@ -17,7 +17,7 @@
 | **Documentation** (5 files) | 100% | READMEs, SETUP guides, ROUTER_SETUP.md — all v2-compliant. |
 | **Root Analytics** (3 scripts) | 100% | `loop.sh`, `loop-with-analytics.sh`, `compare-analytics.sh`. |
 | **Client Version Mgmt** (3 scripts) | 100% | `check-compatibility.sh`, `pin-versions.sh`, `downgrade-claude.sh`. |
-| **Client Config** | 100% | `env.template` — uses `__HOSTNAME__` placeholder, correct env vars. |
+| **Client Config** | 100% | `env.template` — uses static DMZ IP `192.168.100.10`, correct env vars. |
 | **Server Scripts** (4 files) | ~65% | 3 of 4 complete (warm-models.sh, uninstall.sh, test.sh). 1 remaining (install.sh). |
 | **Client Scripts** (3 files) | ~60% | `install.sh`, `uninstall.sh`, `test.sh` still reference Tailscale. |
 
